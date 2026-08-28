@@ -916,7 +916,7 @@ textarea.form-control {
 
 <div id="toastContainer"></div>
 <div id="neonGlobalStreaming"></div>
-<div id="neonWakeHint"><span class="dot"></span><span id="neonWakeHintText">Đang đánh thức Neon...</span></div>
+<div id="neonWakeHint"><span class="dot"></span><span id="neonWakeHintText">Đang khởi tạo...</span></div>
 
 <!-- ADMIN LOGIN OVERLAY -->
 <div id="adminLoginOverlay" class="login-overlay hidden">
@@ -1070,7 +1070,7 @@ textarea.form-control {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
             <div>
               <h2 style="font-size:20px;font-weight:700;">Danh Sách Khảo Sát Đã Lưu</h2>
-              <p style="font-size:13px;color:#6b7280;margin-top:2px;">Tất cả khảo sát được lưu trực tiếp trên Neon Database.</p>
+              <p style="font-size:13px;color:#6b7280;margin-top:2px;">Tất cả khảo đã được lưu vào hệ thống.</p>
             </div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <button class="btn-secondary btn-sm" onclick="renderSavedSurveysList()">🔄 Làm Mới</button>
@@ -1313,7 +1313,7 @@ textarea.form-control {
         Nếu xóa mẫu khảo sát này (<code id="deleteSurveyTargetId" style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;"></code>) thì toàn bộ bài khảo sát liên quan sẽ bị xóa. Xác nhận xóa?
       </p>
       <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 12px;border-radius:8px;font-size:13px;color:#991b1b;">
-        ⚠️ Thao tác này sẽ xóa vĩnh viễn mẫu khảo sát và toàn bộ bài nộp tương ứng trên Neon Database. Không thể khôi phục.
+        ⚠️ Thao tác này sẽ xóa vĩnh viễn mẫu khảo sát và toàn bộ bài nộp tương ứng. Không thể khôi phục.
       </div>
     </div>
     <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;">
@@ -2379,7 +2379,7 @@ function startStorageWakeStreaming() {
   var bar = document.getElementById('storageUsageBar');
   var txt = document.getElementById('storageUsageText');
   if (bar) { bar.classList.add('neon-waking'); bar.style.width='18%'; }
-  if (txt) { txt.textContent='⏳ Đang đánh thức Neon...'; txt.classList.add('neon-pulse-text'); }
+  if (txt) { txt.textContent='⏳ Đang khởi tạo dữ liệu...'; txt.classList.add('neon-pulse-text'); }
   __neonWakeProgress = 18;
   if (__neonWakeTimer) clearInterval(__neonWakeTimer);
   __neonWakeTimer = setInterval(function(){
@@ -3214,7 +3214,7 @@ function goToAdminHub() {
 async function refreshDataList() {
   showToast("Đang tải dữ liệu...", "info");
   // Cold start streaming: Neon Free ngủ đông ~5 phút, wake 0.8-2.5s (có thể 3-5s)
-  showNeonGlobalWaking(true, '⏳ Đang đánh thức Neon... (cold start 1-3s nếu DB vừa ngủ)');
+  showNeonGlobalWaking(true, '⏳ Đang khởi tạo dữ liệu... (cold start 1-3s nếu không truy cập hệ thống)');
   startStorageWakeStreaming();
   var t0 = Date.now();
   var rows = [];
@@ -3238,7 +3238,7 @@ async function refreshDataList() {
       throw new Error("HTTP " + res.status);
     }
   } catch(err) {
-    console.warn("Lỗi tải responses từ Neon API:", err);
+    console.warn("Lỗi tải responses từ hệ thống:", err);
     rows = [];
   }
 
@@ -3254,7 +3254,7 @@ async function refreshDataList() {
       var color = pct >= 90 ? "#ef4444" : (pct >= 80 ? "#f97316" : (pct >= 60 ? "#f59e0b" : "#10b981"));
       stopStorageWakeStreaming(pct, pretty, color);
       if (pct >= 90) {
-        showToast("Cảnh báo: Dung lượng bộ nhớ Neon đã đạt " + pct + "% (gần đầy 512 MB). Cần dọn dẹp dữ liệu!", "warning");
+        showToast("Cảnh báo: Dung lượng bộ nhớ đã đạt " + pct + "% (gần đầy 512 MB). Cần dọn dẹp dữ liệu!", "warning");
       }
     } else {
       stopStorageWakeStreaming(0, 'Lỗi tải dung lượng', '#9ca3af');
@@ -3280,7 +3280,7 @@ async function refreshDataList() {
   } catch(e){}
   showNeonGlobalWaking(false);
   // Nếu wake lâu >1.2s thì log để debug cold start
-  if (dt > 1200) console.log('Neon wake time ~'+(dt/1000).toFixed(2)+'s (cold start có thể xảy ra khi DB ngủ >5 phút)');
+  if (dt > 1200) console.log('Neon wake time ~'+(dt/1000).toFixed(2)+'s (cold start có thể xảy ra khi hệ thống tắt >5 phút)');
   // Đảm bảo storage streaming dừng nếu chưa dừng (trường hợp storageRes ok đã set, còn lại thì stop ở catch)
   if (__neonWakeTimer) {
     // Lấy real percent từ bar nếu có, không thì giữ 0
@@ -3696,8 +3696,8 @@ function copyWorkerCode() {
 
 async function renderSavedSurveysList() {
   var container = document.getElementById("savedSurveysContainer");
-  container.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280;">⏳ Đang tải danh sách khảo sát từ Neon Database...<br><span style="font-size:12px;color:#9ca3af;">Nếu Neon đang ngủ đông, sẽ mất 1-3s để đánh thức</span></div>';
-  showNeonGlobalWaking(true, '⏳ Đang tải danh sách khảo sát... (cold start 1-3s nếu DB ngủ)');
+  container.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280;">⏳ Đang tải danh sách khảo sát từ hệ thống...<br><span style="font-size:12px;color:#9ca3af;">Nếu Sever tắt, sẽ mất 1-3s để khởi tạo</span></div>';
+  showNeonGlobalWaking(true, '⏳ Đang tải danh sách khảo sát... (cold start 1-3s sever bị tắt)');
   var t0 = Date.now();
   var list = [];
   try {
@@ -3709,8 +3709,8 @@ async function renderSavedSurveysList() {
       throw new Error("HTTP " + res.status);
     }
   } catch(e) {
-    console.warn("Lỗi tải surveys từ Neon API:", e);
-    container.innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444;">⚠️ Không thể tải danh sách khảo sát: ' + escHtml(e.message) + '<br><span style="font-size:12px;color:#9ca3af;">Nếu vừa ngủ đông, thử lại sau 2-3s</span></div>';
+    console.warn("Lỗi tải surveys từ hệ thống:", e);
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444;">⚠️ Không thể tải danh sách khảo sát: ' + escHtml(e.message) + '<br><span style="font-size:12px;color:#9ca3af;">Nếu sever tắt, thử lại sau 2-3s</span></div>';
     showNeonGlobalWaking(false);
     return;
   }
@@ -3939,14 +3939,14 @@ async function handleSurveyLoadWithLock(survey) {
     var id = decodeURIComponent(hash.slice(4));
     // Load survey by ID từ Neon API (pages.dev) – có check lock IP/MSNV
     // Neon Free ngủ đông sau ~5 phút idle, lần đầu wake 0.8-2.5s (có thể 3-5s) -> hiện streaming
-    showNeonGlobalWaking(true, '⏳ Đang tải khảo sát... (Neon cold start 1-3s nếu DB vừa ngủ)');
+    showNeonGlobalWaking(true, '⏳ Đang tải khảo sát... (Sever cold start 1-3s nếu bị tắt)');
     // Hiển thị placeholder loading để UX không trắng màn hình
     document.getElementById('adminView')?.classList.add('hidden');
     if (!document.getElementById('participantLoading')) {
       var ph = document.createElement('div');
       ph.id='participantLoading';
       ph.style.cssText='min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;padding:40px;text-align:center;';
-      ph.innerHTML='<div style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.2);border-top-color:#22c55e;border-radius:50%;animation:spin 0.9s linear infinite;margin-bottom:16px;"></div><div style="font-weight:700;font-size:16px;">Đang tải khảo sát...</div><div style="font-size:13px;color:#a5a3bd;margin-top:6px;">Nếu Neon vừa ngủ đông, sẽ mất 1-3 giây để đánh thức<br><span style=\"font-size:11px;color:#6b7280;\">Dòng chảy % động đang chạy ở thanh trên cùng</span></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+      ph.innerHTML='<div style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.2);border-top-color:#22c55e;border-radius:50%;animation:spin 0.9s linear infinite;margin-bottom:16px;"></div><div style="font-weight:700;font-size:16px;">Đang tải khảo sát...</div><div style="font-size:13px;color:#a5a3bd;margin-top:6px;">Nếu Sever tắt, sẽ mất 1-3 giây để khởi tạo<br><span style=\"font-size:11px;color:#6b7280;\">Đang khởi tạo...</span></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
       document.body.appendChild(ph);
     }
     (async function loadById() {
