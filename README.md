@@ -36,8 +36,8 @@ Hệ thống ứng dụng Web tạo và quản trị khảo sát đơn file (`in
      - Nút **"📋 Sao Chép Link"**, **"📥 Tải Ảnh QR (PNG)"**, **"🔗 Mở Làm Thử"**.
 
 5. **Lưu Trữ & Gửi Dữ Liệu Về Hệ Thống**:
-   - Dữ liệu gửi về **Cloudflare Worker** -> Lưu vào Database **Neon Serverless PostgreSQL**.
-   - Tự động lưu trữ dự phòng vào **IndexedDB** trên trình duyệt để hoạt động ngoại tuyến (Offline-First) và không bị mất dữ liệu khi mất mạng.
+   - Dữ liệu gửi về **Cloudflare Pages Functions (pages.dev)** -> Lưu vào Database **Neon Serverless PostgreSQL** (source of truth).
+   - Đã bỏ **IndexedDB**; toàn bộ đọc/ghi qua Neon API trực tiếp (`/api/surveys`, `/api/responses`) để tránh lệch cache/ẩn khảo sát. Khi offline sẽ báo lỗi kết nối, không lưu tạm.
 
 6. **Admin Dashboard, Xuất Excel & Xóa Dữ Liệu (Reset Tránh Phình Neon DB)**:
    - **Bảng Quản lý Dữ liệu**: Thống kê số lượng bài nộp, số nhân viên, số phòng ban; tìm kiếm & lọc theo MSNV, Tên, Bộ phận; xem chi tiết từng bài làm trong Modal.

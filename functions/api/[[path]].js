@@ -353,8 +353,9 @@ export async function onRequest(context) {
       }
     }
 
-    // 4. Lấy danh sách kết quả: GET /api/responses?survey_id=...
+    // 4. Lấy danh sách kết quả: GET /api/responses?survey_id=... - yêu cầu admin
     if (path === '/api/responses' && request.method === 'GET') {
+      if (!isAdminAuthorized(request, env)) return new Response(JSON.stringify({ error:'Unauthorized - cần đăng nhập admin'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json'}});
       const surveyId = url.searchParams.get('survey_id');
       let rows;
       if (surveyId) {
@@ -436,8 +437,9 @@ export async function onRequest(context) {
       });
     }
 
-    // 6. Lưu / Cập nhật cấu hình khảo sát: POST /api/surveys
+    // 6. Lưu / Cập nhật cấu hình khảo sát: POST /api/surveys - yêu cầu admin
     if (path === '/api/surveys' && request.method === 'POST') {
+      if (!isAdminAuthorized(request, env)) return new Response(JSON.stringify({ error:'Unauthorized - cần đăng nhập admin'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json'}});
       const body = await request.json();
       const { id, title, description, questions } = body;
       if (!id) {
@@ -466,10 +468,11 @@ export async function onRequest(context) {
       });
     }
 
-    // 7. Lấy thông tin khảo sát: GET /api/surveys?id=... hoặc list all khi không có id
+    // 7. Lấy thông tin khảo sát: GET /api/surveys?id=... hoặc list all khi không có id (list all yêu cầu admin, single id public cho participant)
     if (path === '/api/surveys' && request.method === 'GET') {
       const id = url.searchParams.get('id');
       if (!id) {
+        if (!isAdminAuthorized(request, env)) return new Response(JSON.stringify({ error:'Unauthorized - cần đăng nhập admin để xem danh sách khảo sát'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json'}});
         // List all – dùng cho Khảo Sát Đã Lưu (chỉ fetch khi mở tab, không quét liên tục)
         const rows = await queryNeon(DB_URL, `SELECT id, title, description, questions, created_at, updated_at FROM surveys ORDER BY updated_at DESC LIMIT 100;`);
         const list = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);

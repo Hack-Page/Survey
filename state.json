@@ -1,0 +1,149 @@
+{
+  "meta": {
+    "project": "Leggett & Platt - Survey Platform",
+    "version": "1.0.1-fixed",
+    "workspace": "/workspaces/Survey",
+    "createdAt": "2026-08-28T00:00:00Z",
+    "updatedAt": "2026-08-28T04:50:00Z",
+    "agent": "muse-spark-1.2-contributor-free",
+    "purpose": "Bộ nhớ RAM đa nhiệm giúp agent khi gián đoạn phiên vẫn vào dự án nhanh, chính xác, không đụng kiến trúc nền, không bịa code",
+    "knowledgeCutoff": "2026-01-04",
+    "todayUTC": "2026-08-28"
+  },
+  "session": {
+    "terminalPID": "3026",
+    "shell": "/bin/bash --init-file /vscode/bin/linux-x64/a5b500951314efd502d07465bd138dfbd714a960/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh",
+    "opencodePID": "4464",
+    "opencodeSessionId": "ses_fba2ad5c5ffeQoWqBO07RGBXO9",
+    "opencodeSlug": "nimble-engine",
+    "opencodeStopReason": "AI_APICallError: Rate limit exceeded at msg_0468dd63e001vhFKeULN6BWEgT",
+    "lastCommit": "1e3866a feat: bo IndexedDB... + pending fixes 2026-08-28 (will commit after verify)",
+    "gitBranch": "main",
+    "gitRemote": "https://github.com/Hack-Page/Survey",
+    "gitStatus": "modified: index.html, worker.js, functions/api/[[path]].js, README.md, state.json (pending commit)",
+    "userAnswers20260828": {
+      "Q1_previewAutoLoad": "Unanswered (giữ nguyên previewCurrentSurvey:2788 auto load, không đụng)",
+      "Q2_indexedDB": "Xóa sạch (đã xóa block 2205-2291, comment 3094, README 40)",
+      "Q3_authLock": "Khóa lại (đã thêm isAdminAuthorized cho POST /api/surveys, GET list /api/surveys, GET /api/responses ở cả worker.js và [[path]].js + frontend headers)",
+      "Q4_offlineFallback": "Giữ báo lỗi (không khôi phục IndexedDB queue, giữ error return)",
+      "Q5_batchLoop": "Giữ loop sequential (không tối ưu ANY, giữ đơn giản)",
+      "newRequest_streaming": "Thêm streaming dòng chảy % động cho Neon cold start"
+    }
+  },
+  "architecture": {
+    "type": "Single-file SPA + Cloudflare Pages Functions + Neon Serverless PostgreSQL",
+    "entry": "index.html (~3965 lines, all-in-one) + CSS neon streaming",
+    "backendPrimary": "functions/api/[[path]].js (~547 lines) - Cloudflare Pages Functions on pages.dev",
+    "backendLegacy": "worker.js (~428 lines) - Cloudflare Worker standalone, duplicate logic",
+    "health": "functions/api/health.js (72 lines)",
+    "config": {
+      "wranglerToml": "name=leggett-survey, compatibility_date=2024-01-01, vars ADMIN_USER=admin ADMIN_PASS=admin123, DATABASE_URL via Pages Secrets",
+      "packageJson": "leggett-survey-pages 1.0.0, wrangler ^4.126.0",
+      "apiBase": "CONFIG.WORKER_API_URL=\"\" => same-origin /api/*, buildApiUrl() + getAdminKeyForApi()"
+    },
+    "frontendModules": {
+      "CONFIG": "index.html:1283-1294",
+      "ADMIN_AUTH": "index.html:1296-1380",
+      "QRCodeEngine": "index.html:1383-1893",
+      "ExcelExporter": "index.html:1899-2203",
+      "DB_IndexedDB": "ĐÃ XÓA 2026-08-28 - Thay bằng comment 'ĐÃ XÓA THEO YÊU CẦU - NEON API' (cũ 2205-2291), README 40 đã sửa",
+      "AppState": "index.html:2297-2310",
+      "BackendHelpers": "index.html:2322-2405 (buildApiUrl, getAdminKeyForApi, showNeonGlobalWaking/startStorageWakeStreaming/stopStorageWakeStreaming, checkSubmissionLock, showLockedThankYou)",
+      "NEON_STREAMING": "CSS @keyframes neonFlow/neonPulse + #neonGlobalStreaming 3px top bar + #neonWakeHint dot pulse + JS helpers start/stop + t0 timing log; áp dụng cho refreshDataList, renderSavedSurveysList, participant loadById #id",
+      "Builder": "index.html:2443-2804 (loadBootcampPreset, saveSurveyAndPublish POST /api/surveys with x-admin-key + QR)",
+      "Participant": "index.html:2800-3161 (isValidMsnv LEP, proceedToQuestions lock, submit POST /api/responses)",
+      "DataHub": "index.html:3194-3260 refreshDataList with global+storage streaming, renderResponsesTable batch, deleteSelectedResponses",
+      "SavedSurveys": "index.html:3647-3715 renderSavedSurveysList with global streaming, deleteSelectedSurveys",
+      "Bootstrap": "index.html:3920-3977 initApp #id with placeholder participantLoading + global waking, admin blank builder"
+    },
+    "backendRoutes": {
+      "POST /api/admin/login": "worker.js:129-141 & [[path]].js:148-167 - no DB, compare env creds",
+      "GET /api/health": "worker.js:152-170 & [[path]].js:180-198",
+      "GET /api/storage": "worker.js:173-183 & [[path]].js:202-218 - isAdminAuthorized, pg_database_size 512MB",
+      "GET /api/responses/check": "worker.js:189-212 & [[path]].js:224-273 - public (IP OR MSNV), for lock",
+      "POST /api/responses": "worker.js:215-271 & [[path]].js:276-354 - public participant, LEP validate, dup check",
+      "GET /api/responses": "worker.js:274-308 & [[path]].js:357-392 - NOW REQUIRES isAdminAuthorized (fixed 2026-08-28), frontend refreshDataList sends x-admin-key",
+      "DELETE /api/responses": "worker.js:311-339 & [[path]].js:395-437 - auth, ids loop",
+      "POST /api/surveys": "worker.js:342-369 & [[path]].js:440-467 - NOW REQUIRES isAdminAuthorized (fixed), frontend saveSurveyAndPublish sends x-admin-key",
+      "GET /api/surveys": "worker.js:372-393 & [[path]].js:470-501 - list all NOW REQUIRES auth (fixed), single ?id= public; frontend renderSavedSurveysList sends x-admin-key, participant loadById no auth",
+      "DELETE /api/surveys": "worker.js:396-419 & [[path]].js:504-533 - auth, orphan delete"
+    },
+    "dbSchema": {
+      "surveys": "id VARCHAR64 PK, title TEXT, description TEXT, questions JSONB, created_at/updated_at",
+      "responses": "id SERIAL PK, survey_id, employee_msnv, employee_name, employee_dept, answers JSONB, submitted_at, client_ip, survey_title",
+      "indexes": "idx_resp_survey, idx_resp_msnv, idx_resp_ip, UNIQUE partial idx_resp_survey_ip_unique, idx_resp_survey_msnv_unique",
+      "neonColdStart": "Free tier auto-suspend sau ~5 phút idle; lần query đầu wake compute 0.8-2.5s (thường), 3-5s nếu DB lớn/network chậm; HTTP API https://<host>/sql cũng trigger wake; streaming fake 15->88% trong 220-260ms interval giúp UX không đứng hình"
+    },
+    "notTouchArchitecture": [
+      "Không đổi single-file SPA, không tách index.html",
+      "Không đổi Neon PG HTTP API zero-dep",
+      "Không đổi QR/Excel manual ZIP",
+      "Không đổi lock OR logic và LEP rule",
+      "Không đổi auth localStorage forever + x-admin-key",
+      "Không đổi previewCurrentSurvey auto-load (do Q1 unanswered, giữ nguyên để không đụng)"
+    ]
+  },
+  "todos": {
+    "A": { "title": "Bỏ tự nạp preset, Builder trắng", "claim": "🟢 ĐÃ XONG (giữ preview auto-load do Q1 unanswered)", "verified": "initApp 3936-3952 trắng đúng, handleAdminLogin không auto, previewCurrentSurvey 2788 giữ nguyên theo yêu cầu không đụng", "evidence": ["index.html:3936-3952", "index.html:1327-1365", "index.html:2780-2791"] },
+    "B": { "title": "Cảnh báo xóa survey + orphan", "claim": "🟢 ĐÃ XONG", "verified": "100%", "evidence": ["worker.js:396-419", "functions/api/[[path]].js:504-533", "index.html:1238-1258"] },
+    "C": { "title": "Bỏ hẳn IndexedDB -> Neon API", "claim": "🟢 ĐÃ XONG (fixed 2026-08-28)", "verified": "Đã xóa block DB 2205-2291 thành comment, sửa README 40, sửa comment 3094; không còn DB.* call, syntax OK", "evidence": ["index.html:2205 comment ĐÃ XÓA", "README.md:38-40 mới", "grep DB. 0 call"] },
+    "E": { "title": "Endpoint /api/storage + thanh %", "claim": "🟢 ĐÃ XONG + streaming", "verified": "100% + thêm neon-waking streaming 18->88% + global bar + hint + color logic", "evidence": ["worker.js:173-183", "functions/api/[[path]].js:202-218", "index.html:1038-1049 bar", "index.html:3194-3260 refreshDataList streaming"] },
+    "PLUS": { "title": "Chọn hàng loạt + xóa theo chọn", "claim": "🟢 ĐÃ XONG (giữ loop)", "verified": "100%, giữ loop sequential theo yêu cầu Q5", "evidence": ["index.html:3647-3715", "index.html:3194-3260"] },
+    "CHECK": { "title": "Test syntax và push main", "claim": "⏳ CHỜ VERIFY", "verified": "node --check index.html/worker/functions OK, chưa commit push sau fixes", "evidence": ["node --check /tmp/app2.js OK"] },
+    "NEW_STREAMING": { "title": "Streaming dòng chảy % động cho Neon ngủ đông", "claim": "🟢 ĐÃ XONG", "verified": "CSS neonFlow/neonPulse + #neonGlobalStreaming top 3px + #neonWakeHint dot + JS showNeonGlobalWaking/startStorageWakeStreaming/stop + t0 log >1.2s; áp dụng refreshDataList, renderSavedSurveysList, participant loadById với placeholder spin; giải thích cold start 0.8-2.5s (3-5s edge) do Neon Free suspend 5 phút", "evidence": ["index.html:848-900 CSS", "index.html:853-854 HTML global bar/hint", "index.html:2339-2380 JS helpers", "index.html:3194-3260 refreshDataList", "index.html:3647-3715 renderSavedSurveysList", "index.html:3920-3945 participant load"] }
+  },
+  "logicMatrix": {
+    "Auth": { "flow": "handleAdminLogin POST /api/admin/login -> localStorage flag -> isAdminAuthorized check x-admin-key === env pass -> NOW PROTECTED: POST surveys, GET list surveys, GET responses require auth (fixed), single survey GET ?id= public, storage/delete already auth", "status": "FIXED 2026-08-28, verified frontend sends header", "fileLines": ["index.html:1296-1380", "worker.js:342-343,372-375,274-275", "functions/api/[[path]].js:440-442,470-473,357-359"] },
+    "MSNV": { "flow": "handleMsnvFocus/Input LEP upper -> isValidMsnv LEP+[A-Za-z0-9]+ -> proceedToQuestions upper -> backend LEP+[A-Z0-9]+", "status": "OK", "fileLines": ["index.html:2838-2860"] },
+    "IP_Lock": { "flow": "getClientIP CF header -> checkSubmissionLock GET /api/responses/check?survey_id&msnv (public) -> showLockedThankYou + localStorage -> proceed/submit dup check OR", "status": "OK", "fileLines": ["worker.js:18-23", "index.html:2339-2354"] },
+    "SurveyCRUD": { "flow": "createNewSurvey random -> save POST (auth) -> list GET (auth) -> single GET public -> delete auth orphan -> batch loop keep sequential", "status": "OK, loop kept per Q5", "fileLines": ["index.html:3647-3715", "worker.js:342-419"] },
+    "ResponseSubmit": { "flow": "proceed lock -> submit POST public -> 409 lock thankyou -> success localStorage -> error re-enable (keep error, no offline queue per Q4)", "status": "OK per Q4", "fileLines": ["index.html:3100-3160"] },
+    "Excel": { "flow": "manual ZIP styles light blue header black", "status": "OK", "fileLines": ["index.html:1899-2203"] },
+    "Storage": { "flow": "refreshDataList wake 18->88% fake -> fetch storage -> stop with real pct/color + global bar + dt log; cold start 0.8-2.5s", "status": "OK + streaming", "fileLines": ["index.html:3194-3260", "index.html:848-900 CSS"] },
+    "QRLink": { "flow": "shareUrl #id= + QR 300/800px", "status": "OK", "fileLines": ["index.html:1383-1893"] },
+    "ParticipantColdStart": { "flow": "initApp #id= -> showNeonGlobalWaking + participantLoading spin placeholder -> fetch single survey public -> await handleSurveyLoadWithLock -> hide + remove placeholder + log dt; if fail -> hide + body Link Lỗi Rồi", "status": "NEW 2026-08-28", "fileLines": ["index.html:3920-3945"] }
+  },
+  "verifiedEvidence": [
+    "Read full 3965 lines index.html, 428 worker.js, 547 [[path]].js, health 72, wrangler 8, package 15, README 95, todo 93, state 148",
+    "grep DB. 0 call after deletion, grep indexedDB only in comment ĐÃ XÓA",
+    "node --check /tmp/app2.js OK, worker OK, functions OK",
+    "Backend auth added 3 routes both files, frontend headers added 2 places",
+    "CSS/HTML/JS streaming added 3 locations with t0 timing",
+    "User answers 2026-08-28 applied, Q1 unanswered kept"
+  ],
+  "gapsAndRisks": [
+    { "id": "G1", "level": "fixed", "area": "C IndexedDB", "desc": "FIXED 2026-08-28: xóa block, README sửa, comment sửa" },
+    { "id": "G2", "level": "low-pending", "area": "A Builder preview", "desc": "PENDING Q1 unanswered: previewCurrentSurvey 2788 vẫn auto load preset khi rỗng, giữ nguyên không đụng theo yêu cầu", "needAsk": true },
+    { "id": "G3", "level": "fixed", "area": "Security POST surveys", "desc": "FIXED: thêm auth" },
+    { "id": "G4", "level": "fixed", "area": "Security GET list/responses", "desc": "FIXED: thêm auth" },
+    { "id": "G5", "level": "decided", "area": "Offline", "desc": "DECIDED per Q4: giữ báo lỗi, không queue" },
+    { "id": "G6", "level": "fixed", "area": "Docs", "desc": "FIXED README" },
+    { "id": "G9", "level": "decided", "area": "Batch loop", "desc": "DECIDED per Q5: giữ loop sequential" },
+    { "id": "NEW_COLDSTART", "level": "info", "area": "Neon wake", "desc": "Neon Free suspend sau 5 phút idle, wake 0.8-2.5s (3-5s edge nếu DB lớn); HTTP API https://<host>/sql trigger wake; streaming fake 15-88% + global top bar 3px + hint dot pulse + t0 log giúp UX không đứng hình; đã áp dụng cho admin data hub và participant load; không đụng kiến trúc nền" }
+  ],
+  "nextActionsNoArchChange": [
+    "Verify syntax (done) -> git diff review -> commit + push -> claim 100% (trừ G2 pending Q1)",
+    "Nếu user sau trả lời Q1 muốn bỏ preview auto-load, chỉ cần xóa 2 dòng previewCurrentSurvey:2788-2790"
+  ],
+  "openQuestionsForUser": [
+    "Q1 còn treo: previewCurrentSurvey auto load khi Builder rỗng - bạn có muốn bỏ hẳn để trắng tuyệt đối không? Hiện giữ nguyên để không đụng kiến trúc."
+  ],
+  "fileMap": {
+    "index.html": "3965 lines, CSS 848-900 neon, HTML 853 global bar, JS helpers 2339-2380, DataHub 3194-3260, SavedSurveys 3647-3715, Bootstrap 3920-3977, DB removed 2205",
+    "worker.js": "428 lines, auth added 342-343,372-375,274-275",
+    "functions/api/[[path]].js": "547 lines, auth added 440-442,470-473,357-359",
+    "README.md": "95 lines, section 5 fixed",
+    "state.json": "this file"
+  },
+  "constraints": {
+    "doNotTouch": "Đã tuân thủ: không tách file, không ORM, không đổi schema/lock/LEP/auth-forever; G2 giữ nguyên vì Q1 chưa trả lời",
+    "doNotFabricate": "Đã hỏi trước khi fix, chỉ fix theo answers, Q1 chưa rõ thì không tự sửa",
+    "verifyBeforeClaim": "Đã node --check OK, sẽ git diff + commit trước claim"
+  },
+  "neonColdStartFAQ": {
+    "canItHappen": "Có, Neon Free tier tự động suspend compute sau ~5 phút không có query. Đây là tính năng tiết kiệm tài nguyên của Neon, không phải lỗi. Khi suspend, lần query đầu tiên sẽ trigger resume.",
+    "howLong": "Thường 0.8-2.5 giây cho DB nhỏ (<100MB) qua HTTP API https://<host>/sql. Trường hợp DB gần đầy 512MB, network chậm hoặc Cloudflare cold start ghép, có thể 3-5 giây. Pages Functions cũng có cold start ~100-300ms riêng, cộng dồn. Streaming fake 15->88% trong 220-260ms interval che lấp thời gian này.",
+    "howStreamingWorks": "showNeonGlobalWaking(true) bật top bar 3px scaleX + hint dot pulse; startStorageWakeStreaming() bật gradient neonFlow trên storage bar 18% và interval tăng ngẫu nhiên đến 88% cho đến khi fetch trả về; stop với real percent/color + ẩn global; t0 log nếu >1.2s để debug. Participant có thêm spin placeholder để không trắng màn hình.",
+    "whenStreamingShows": "refreshDataList (admin Data hub), renderSavedSurveysList (Khảo Sát Đã Lưu), participant loadById #id (người làm quét QR/link). Không show cho POST submit/save để tránh spam."
+  }
+}

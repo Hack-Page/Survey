@@ -270,8 +270,9 @@ export default {
         }
       }
 
-      // 3. Lấy danh sách kết quả phản hồi cho Admin (Get Responses)
+      // 3. Lấy danh sách kết quả phản hồi cho Admin (Get Responses) - yêu cầu admin
       if (path === '/api/responses' && request.method === 'GET') {
+        if (!isAdminAuthorized(request, env)) return new Response(JSON.stringify({ error:'Unauthorized - cần đăng nhập admin'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json'}});
         const surveyId = url.searchParams.get('survey_id');
         let rows;
         if (surveyId) {
@@ -338,8 +339,9 @@ export default {
         });
       }
 
-      // 5. Lưu / Cập nhật cấu hình bài khảo sát (Save Survey)
+      // 5. Lưu / Cập nhật cấu hình bài khảo sát (Save Survey) - yêu cầu admin
       if (path === '/api/surveys' && request.method === 'POST') {
+        if (!isAdminAuthorized(request, env)) return new Response(JSON.stringify({ error:'Unauthorized - cần đăng nhập admin'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json'}});
         const body = await request.json();
         const { id, title, description, questions } = body;
         if (!id) {
@@ -368,10 +370,11 @@ export default {
         });
       }
 
-      // 6. Lấy thông tin bài khảo sát: GET /api/surveys?id=... hoặc list all
+      // 6. Lấy thông tin bài khảo sát: GET /api/surveys?id=... hoặc list all (list all yêu cầu admin, single id public cho participant)
       if (path === '/api/surveys' && request.method === 'GET') {
         const id = url.searchParams.get('id');
         if (!id) {
+          if (!isAdminAuthorized(request, env)) return new Response(JSON.stringify({ error:'Unauthorized - cần đăng nhập admin để xem danh sách khảo sát'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json'}});
           const rows = await queryNeon(DB_URL, `SELECT id, title, description, questions, created_at, updated_at FROM surveys ORDER BY updated_at DESC LIMIT 100;`);
           const list = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
           const normalized = list.map(function(s){ if(typeof s.questions==='string'){ try{s.questions=JSON.parse(s.questions);}catch(e){} } return s; });
