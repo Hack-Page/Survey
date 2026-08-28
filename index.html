@@ -1094,7 +1094,6 @@ textarea.form-control {
             </div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <button class="btn-secondary btn-sm" onclick="refreshDataList()">🔄 Làm Mới</button>
-              <button class="btn-secondary btn-sm" style="border:1px dashed #7a45ff;color:#7a45ff;background:#f5f3ff;" onclick="testNeonStreaming()" title="Demo streaming khi Neon ngủ đông (không cần DB)">🧪 Test Streaming</button>
               <button id="batchDeleteResponsesBtn" class="btn-danger btn-sm hidden" onclick="deleteSelectedResponses()">🗑️ Xóa Đã Chọn (0)</button>
               <button class="btn-green" onclick="exportDataToExcel()">📥 XUẤT FILE EXCEL</button>
               <button class="btn-danger" onclick="openPurgeDataModal()">🗑️ XÓA TOÀN BỘ DỮ LIỆU</button>
@@ -1106,7 +1105,7 @@ textarea.form-control {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:16px;">💾</span>
-                <span style="font-weight:700;font-size:14px;color:#1f2937;">Dung Lượng Neon Database (Free 512 MB)</span>
+                <span style="font-weight:700;font-size:14px;color:#1f2937;">Dung lượng hệ thống</span>
               </div>
               <span id="storageUsageText" style="font-size:13px;color:#4b5563;font-weight:700;background:#f3f4f6;padding:3px 8px;border-radius:6px;">Đang tải...</span>
             </div>
@@ -1340,6 +1339,26 @@ textarea.form-control {
     <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;">
       <button class="btn-secondary" onclick="closeRetakeModal()">Hủy</button>
       <button class="btn-primary" id="confirmRetakeBtn" onclick="confirmRetake()" style="background:#f59e0b;border-color:#f59e0b;">Xác Nhận Cho Phép Làm Lại</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BATCH DELETE CONFIRM (UI nổi thay confirm trình duyệt) -->
+<div id="batchDeleteModal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width:500px;border-top:4px solid var(--danger);">
+    <div class="modal-header">
+      <h3 id="batchDeleteModalTitle" style="color:var(--danger);font-size:18px;">🗑️ Xác Nhận Xóa Hàng Loạt</h3>
+      <button class="btn-secondary btn-icon" onclick="closeBatchDeleteModal()">✕</button>
+    </div>
+    <div class="modal-body" style="font-size:14px;color:#374151;line-height:1.6;">
+      <p id="batchDeleteModalMsg" style="font-weight:600;font-size:15px;color:#111827;margin-bottom:12px;"></p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 12px;border-radius:8px;font-size:13px;color:#991b1b;">
+        ⚠️ Thao tác này sẽ xóa vĩnh viễn và không thể khôi phục. Vui lòng xác nhận.
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;">
+      <button class="btn-secondary" onclick="closeBatchDeleteModal()">Hủy</button>
+      <button class="btn-danger" id="confirmBatchDeleteBtn" onclick="confirmBatchDelete()">Xác Nhận Xóa</button>
     </div>
   </div>
 </div>
@@ -2380,23 +2399,6 @@ function stopStorageWakeStreaming(realPercent, realPretty, realColor) {
   }
   if (txt) { txt.classList.remove('neon-pulse-text'); if (realPretty) txt.textContent = realPretty+' ('+realPercent.toFixed(1)+'%)'; }
 }
-function testNeonStreaming() {
-  showToast('🧪 Demo streaming 4s - mô phỏng Neon cold start (thực tế 0.8-2.5s)', 'info');
-  showNeonGlobalWaking(true, '🧪 Demo: Đang đánh thức Neon... (cold start 1-3s)');
-  startStorageWakeStreaming();
-  setTimeout(function(){
-    // Demo fake kết quả: 23.7 MB -> 4.6%
-    var demoPct = 4.6;
-    stopStorageWakeStreaming(demoPct, '23.70 MB / 512 MB', '#10b981');
-    showNeonGlobalWaking(false);
-    showToast('Demo xong ✓ Thực tế wake 0.8-2.5s, 3-5s nếu DB lớn/ngủ >5 phút', 'success');
-  }, 4000);
-}
-function testParticipantWake() {
-  showNeonGlobalWaking(true, '🧪 Demo participant: Đang tải khảo sát... (cold start 1-3s)');
-  showToast('Demo participant wake 3s', 'info');
-  setTimeout(function(){ showNeonGlobalWaking(false); showToast('Demo participant xong','success'); }, 3000);
-}
 
 // === LOCK CHECK – server là source of truth, localStorage là UX cache ===
 async function checkSubmissionLock(surveyId, msnv) {
@@ -3389,25 +3391,7 @@ function updateSelectedResponsesCount() {
 async function deleteSelectedResponses() {
   var selected = Array.from(document.querySelectorAll(".resp-checkbox:checked")).map(function(cb){ return cb.value; });
   if (selected.length === 0) return;
-
-  if (!confirm("Bạn có chắc chắn muốn xóa " + selected.length + " bài khảo sát đã chọn khỏi hệ thống?")) {
-    return;
-  }
-
-  showToast("Đang xóa " + selected.length + " bài khảo sát...", "info");
-  try {
-    var apiUrl = buildApiUrl("/api/responses?ids=" + encodeURIComponent(selected.join(',')));
-    var res = await fetch(apiUrl, {
-      method: "DELETE",
-      headers: { "x-admin-key": getAdminKeyForApi() }
-    });
-    var data = await res.json().catch(function(){ return {}; });
-    if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
-    showToast("Đã xóa " + selected.length + " bài khảo sát thành công!", "success");
-    await refreshDataList();
-  } catch(e) {
-    showToast("Xóa thất bại: " + e.message, "error");
-  }
+  openBatchDeleteModal('responses', selected, "Bạn có chắc chắn muốn xóa " + selected.length + " bài khảo sát đã chọn khỏi hệ thống?", "🗑️ Xác Nhận Xóa Bài Nộp");
 }
 
 function filterResponsesTable() {
@@ -3587,6 +3571,54 @@ async function allowRetake(responseId) {
   openRetakeModal(responseId);
 }
 
+// === BATCH DELETE UI NỔI (thay confirm trình duyệt) ===
+var __batchDeleteMode = null;
+var __batchDeleteIds = [];
+function openBatchDeleteModal(mode, ids, msg, title) {
+  __batchDeleteMode = mode;
+  __batchDeleteIds = ids.slice();
+  var titleEl = document.getElementById('batchDeleteModalTitle');
+  var msgEl = document.getElementById('batchDeleteModalMsg');
+  if (titleEl && title) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = msg;
+  var modal = document.getElementById('batchDeleteModal');
+  if (modal) modal.classList.remove('hidden');
+}
+function closeBatchDeleteModal() {
+  var modal = document.getElementById('batchDeleteModal');
+  if (modal) modal.classList.add('hidden');
+  __batchDeleteMode = null;
+  __batchDeleteIds = [];
+}
+async function confirmBatchDelete() {
+  var mode = __batchDeleteMode;
+  var ids = __batchDeleteIds.slice();
+  closeBatchDeleteModal();
+  if (!mode || ids.length===0) return;
+  if (mode === 'responses') {
+    showToast("Đang xóa " + ids.length + " bài khảo sát...", "info");
+    try {
+      var apiUrl = buildApiUrl("/api/responses?ids=" + encodeURIComponent(ids.join(',')));
+      var res = await fetch(apiUrl, { method: "DELETE", headers: { "x-admin-key": getAdminKeyForApi() } });
+      var data = await res.json().catch(function(){ return {}; });
+      if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
+      showToast("Đã xóa " + ids.length + " bài khảo sát thành công!", "success");
+      await refreshDataList();
+    } catch(e) { showToast("Xóa thất bại: " + e.message, "error"); }
+  } else if (mode === 'surveys') {
+    showToast("Đang xóa " + ids.length + " khảo sát và bài nộp liên quan...", "info");
+    try {
+      var apiUrl = buildApiUrl("/api/surveys?ids=" + encodeURIComponent(ids.join(',')));
+      var res = await fetch(apiUrl, { method: "DELETE", headers: { "x-admin-key": getAdminKeyForApi() } });
+      var data = await res.json().catch(function(){ return {}; });
+      if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
+      if (AppState.currentSurvey && ids.includes(AppState.currentSurvey.id)) createNewSurvey();
+      showToast("Đã xóa " + ids.length + " khảo sát thành công!", "success");
+      await renderSavedSurveysList();
+    } catch(e) { showToast("Xóa thất bại: " + e.message, "error"); }
+  }
+}
+
 /* =========================================================================
    8. SETTINGS & TAB NAVIGATION
    ========================================================================= */
@@ -3751,31 +3783,7 @@ function updateSelectedSurveysCount() {
 async function deleteSelectedSurveys() {
   var selected = Array.from(document.querySelectorAll(".survey-checkbox:checked")).map(function(cb){ return cb.value; });
   if (selected.length === 0) return;
-
-  if (!confirm("Nếu xóa các mẫu khảo sát này (" + selected.length + " mẫu) thì toàn bộ bài khảo sát liên quan sẽ bị xóa. Xác nhận xóa?")) {
-    return;
-  }
-
-  showToast("Đang xóa " + selected.length + " khảo sát và bài nộp liên quan...", "info");
-  try {
-    var apiUrl = buildApiUrl("/api/surveys?ids=" + encodeURIComponent(selected.join(',')));
-    var res = await fetch(apiUrl, {
-      method: "DELETE",
-      headers: { "x-admin-key": getAdminKeyForApi() }
-    });
-    var data = await res.json().catch(function(){ return {}; });
-    if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
-    
-    // Nếu đang mở 1 trong các khảo sát bị xóa thì reset Builder
-    if (AppState.currentSurvey && selected.includes(AppState.currentSurvey.id)) {
-      createNewSurvey();
-    }
-
-    showToast("Đã xóa " + selected.length + " khảo sát thành công!", "success");
-    await renderSavedSurveysList();
-  } catch(e) {
-    showToast("Xóa thất bại: " + e.message, "error");
-  }
+  openBatchDeleteModal('surveys', selected, "Nếu xóa các mẫu khảo sát này (" + selected.length + " mẫu) thì toàn bộ bài khảo sát liên quan sẽ bị xóa. Xác nhận xóa?", "🗑️ Xác Nhận Xóa Khảo Sát");
 }
 
 async function loadSurveyToBuilder(id) {
