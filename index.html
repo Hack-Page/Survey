@@ -1001,9 +1001,16 @@ textarea.form-control {
     <section id="tab_surveys" class="hidden">
       <div class="admin-panel">
         <div class="panel-body">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h2 style="font-size:20px;font-weight:700;">Danh Sách Khảo Sát Đã Lưu</h2>
-            <button class="btn-primary btn-sm" onclick="createNewSurvey()">+ Tạo Khảo Sát Mới</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2 style="font-size:20px;font-weight:700;">Danh Sách Khảo Sát Đã Lưu</h2>
+              <p style="font-size:13px;color:#6b7280;margin-top:2px;">Tất cả khảo sát được lưu trực tiếp trên Neon Database.</p>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <button class="btn-secondary btn-sm" onclick="renderSavedSurveysList()">🔄 Làm Mới</button>
+              <button id="batchDeleteSurveysBtn" class="btn-danger btn-sm hidden" onclick="deleteSelectedSurveys()">🗑️ Xóa Đã Chọn (0)</button>
+              <button class="btn-primary btn-sm" onclick="createNewSurvey()">+ Tạo Khảo Sát Mới</button>
+            </div>
           </div>
           <div id="savedSurveysContainer"></div>
         </div>
@@ -1019,10 +1026,25 @@ textarea.form-control {
               <h2 style="font-size:20px;font-weight:800;">Dữ Liệu Khảo Sát & Báo Cáo</h2>
               <p style="font-size:13px;color:#6b7280;">Xem chi tiết phản hồi, xuất báo cáo Excel.</p>
             </div>
-            <div style="display:flex;gap:10px;">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <button class="btn-secondary btn-sm" onclick="refreshDataList()">🔄 Làm Mới</button>
+              <button id="batchDeleteResponsesBtn" class="btn-danger btn-sm hidden" onclick="deleteSelectedResponses()">🗑️ Xóa Đã Chọn (0)</button>
               <button class="btn-green" onclick="exportDataToExcel()">📥 XUẤT FILE EXCEL</button>
               <button class="btn-danger" onclick="openPurgeDataModal()">🗑️ XÓA TOÀN BỘ DỮ LIỆU</button>
+            </div>
+          </div>
+
+          <!-- THANH HIỂN THỊ DUNG LƯỢNG NEON STORAGE -->
+          <div id="storageUsageCard" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">💾</span>
+                <span style="font-weight:700;font-size:14px;color:#1f2937;">Dung Lượng Neon Database (Free 512 MB)</span>
+              </div>
+              <span id="storageUsageText" style="font-size:13px;color:#4b5563;font-weight:700;background:#f3f4f6;padding:3px 8px;border-radius:6px;">Đang tải...</span>
+            </div>
+            <div style="width:100%;height:10px;background:#f3f4f6;border-radius:9999px;overflow:hidden;">
+              <div id="storageUsageBar" style="width:0%;height:100%;background:#10b981;transition:width 0.4s ease, background-color 0.3s ease;border-radius:9999px;"></div>
             </div>
           </div>
 
@@ -1054,6 +1076,7 @@ textarea.form-control {
             <table class="data-table" id="responsesTable">
               <thead>
                 <tr>
+                  <th style="width:40px;text-align:center;"><input type="checkbox" id="selectAllResponses" onchange="toggleSelectAllResponses(this.checked)"></th>
                   <th style="width:50px;">STT</th>
                   <th>Thời Gian Nộp</th>
                   <th>MSNV</th>
@@ -1066,7 +1089,7 @@ textarea.form-control {
               </thead>
               <tbody id="responsesTableBody">
                 <tr>
-                  <td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">
+                  <td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">
                     Chưa có phản hồi nào. Hãy chia sẻ link/QR cho nhân viên làm khảo sát!
                   </td>
                 </tr>
@@ -1214,14 +1237,18 @@ textarea.form-control {
 
 <!-- MODAL: CONFIRM DELETE SINGLE SURVEY -->
 <div id="deleteSurveyModal" class="modal-overlay hidden">
-  <div class="modal-content" style="max-width:440px;border-top:4px solid var(--danger);">
+  <div class="modal-content" style="max-width:480px;border-top:4px solid var(--danger);">
     <div class="modal-header">
       <h3 style="color:var(--danger);font-size:18px;">🗑️ Xác Nhận Xóa Khảo Sát</h3>
       <button class="btn-secondary btn-icon" onclick="closeDeleteSurveyModal()">✕</button>
     </div>
     <div class="modal-body" style="font-size:14px;color:#374151;line-height:1.6;">
-      Bạn có chắc muốn xóa khảo sát <code id="deleteSurveyTargetId" style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-weight:700;color:#1f2937;"></code> khỏi hệ thống?<br><br>
-      <span style="font-size:13px;color:#6b7280;">Dữ liệu phản hồi đã nộp trước đó sẽ không bị ảnh hưởng.</span>
+      <p id="deleteSurveyModalMsg" style="font-weight:600;font-size:15px;color:#111827;margin-bottom:12px;">
+        Nếu xóa mẫu khảo sát này (<code id="deleteSurveyTargetId" style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;"></code>) thì toàn bộ bài khảo sát liên quan sẽ bị xóa. Xác nhận xóa?
+      </p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 12px;border-radius:8px;font-size:13px;color:#991b1b;">
+        ⚠️ Thao tác này sẽ xóa vĩnh viễn mẫu khảo sát và toàn bộ bài nộp tương ứng trên Neon Database. Không thể khôi phục.
+      </div>
     </div>
     <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;">
       <button class="btn-secondary" onclick="closeDeleteSurveyModal()">Hủy</button>
@@ -1326,12 +1353,6 @@ async function handleAdminLogin(event) {
       if (errEl) errEl.classList.add('hidden');
       hideAdminLogin();
       showToast('Đăng nhập thành công!', 'success');
-      // Nếu vừa login lần đầu, chỉ nạp mẫu hiển thị, không tự lưu
-      try {
-        if (!document.getElementById('builderHeader').value && AppState.currentSurvey.questions.length === 0) {
-          loadBootcampPreset();
-        }
-      } catch(e){}
       try { refreshDataList(); } catch(e){}
     } else {
       var msg = (data && data.error) ? data.error : 'Sai tài khoản hoặc mật khẩu';
@@ -2626,13 +2647,7 @@ async function saveSurveyAndPublish(isSilent) {
   AppState.currentSurvey.description = desc;
   AppState.currentSurvey.updatedAt = new Date().toISOString();
 
-  try {
-    await DB.saveSurvey(AppState.currentSurvey);
-  } catch(e) {
-    console.warn("IndexedDB save failed (may be private mode), continuing:", e);
-  }
-
-  // Đồng bộ lên Cloudflare Pages Functions (pages.dev)
+  // Đồng bộ lên Cloudflare Pages Functions (pages.dev) / Neon API trực tiếp
   var neonSynced = false;
   var syncErrorMsg = "";
   try {
@@ -3114,8 +3129,6 @@ async function submitSurveyResponse() {
   }
 
   if (neonSynced) {
-    // Lưu IndexedDB chỉ khi Neon thành công để tránh duplicate local khi 409
-    try { await DB.saveResponse(payload); } catch(e){ console.warn("IndexedDB save failed:", e); }
     showToast("Gửi bài khảo sát thành công!", "success");
     // Đánh dấu đã nộp: localStorage + lock vĩnh viễn đến khi admin xóa
     try { localStorage.setItem('survey_done_' + survey.id, '1'); } catch(e){}
@@ -3123,10 +3136,11 @@ async function submitSurveyResponse() {
   } else if (isDuplicate) {
     // đã xử lý ở trên – không lưu local để tránh phình
   } else {
-    // Offline / lỗi mạng: lưu cục bộ fallback nhưng vẫn chặn lần sau bằng localStorage để tránh spam
-    try { await DB.saveResponse(payload); } catch(e){ console.warn("IndexedDB save failed:", e); }
-    try { localStorage.setItem('survey_done_' + survey.id, '1'); } catch(e){}
-    showToast("Đã lưu bài khảo sát cục bộ (offline)! Sẽ đồng bộ khi có mạng.", "info");
+    // Lỗi mạng: thông báo lỗi
+    showToast("Không thể gửi bài: " + (neonErr || "Lỗi kết nối máy chủ"), "error");
+    submitBtn.disabled = false;
+    submitBtn.textContent = "GỬI BÀI KHẢO SÁT (SUBMIT)";
+    return;
   }
 
   document.getElementById("pvStepQuestions").classList.add("hidden");
@@ -3152,7 +3166,7 @@ async function refreshDataList() {
   showToast("Đang tải dữ liệu...", "info");
   var rows = [];
 
-  // Ưu tiên lấy từ Neon qua Pages Functions (pages.dev) - same-origin
+  // 1. Tải dữ liệu phản hồi từ Neon API
   try {
     var apiUrl = buildApiUrl("/api/responses");
     var res = await fetch(apiUrl);
@@ -3171,13 +3185,37 @@ async function refreshDataList() {
       throw new Error("HTTP " + res.status);
     }
   } catch(err) {
-    console.warn("Lỗi đồng bộ giữa Backend và Database, Chuyển về IndexedDB:", err);
-    rows = await DB.getAllResponses();
-    (rows || []).forEach(function(r) {
-      if (typeof r.answers === "string") {
-        try { r.answers = JSON.parse(r.answers); } catch(e) { r.answers = []; }
-      }
+    console.warn("Lỗi tải responses từ Neon API:", err);
+    rows = [];
+  }
+
+  // 2. Cập nhật thanh dung lượng Neon Storage (/api/storage)
+  try {
+    var storageRes = await fetch(buildApiUrl("/api/storage"), {
+      headers: { "x-admin-key": getAdminKeyForApi() }
     });
+    if (storageRes.ok) {
+      var storageData = await storageRes.json();
+      var bar = document.getElementById("storageUsageBar");
+      var txt = document.getElementById("storageUsageText");
+      if (bar && txt) {
+        var pct = Number(storageData.percent || 0);
+        txt.textContent = (storageData.pretty || (pct + "%")) + " (" + pct + "%)";
+        bar.style.width = Math.min(100, Math.max(2, pct)) + "%";
+        if (pct >= 90) {
+          bar.style.background = "#ef4444";
+          showToast("Cảnh báo: Dung lượng bộ nhớ Neon đã đạt " + pct + "% (gần đầy 512 MB). Cần dọn dẹp dữ liệu!", "warning");
+        } else if (pct >= 80) {
+          bar.style.background = "#f97316";
+        } else if (pct >= 60) {
+          bar.style.background = "#f59e0b";
+        } else {
+          bar.style.background = "#10b981";
+        }
+      }
+    }
+  } catch(e) {
+    console.warn("Không thể lấy thông tin storage:", e);
   }
 
   AppState.cachedResponses = rows || [];
@@ -3214,8 +3252,12 @@ function updateDashboardStats(rows) {
 
 function renderResponsesTable(rows) {
   var tbody = document.getElementById("responsesTableBody");
+  var selectAllCb = document.getElementById("selectAllResponses");
+  if (selectAllCb) selectAllCb.checked = false;
+  updateSelectedResponsesCount();
+
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">Chưa có phản hồi nào trong hệ thống.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">Chưa có phản hồi nào trong hệ thống.</td></tr>';
     return;
   }
 
@@ -3241,6 +3283,7 @@ function renderResponsesTable(rows) {
     }).join('<br>');
 
     html += '<tr>';
+    html += '  <td style="text-align:center;"><input type="checkbox" class="resp-checkbox" value="' + escHtml(r.id) + '" onchange="updateSelectedResponsesCount()" style="width:16px;height:16px;cursor:pointer;"></td>';
     html += '  <td style="font-weight:700;">' + (idx + 1) + '</td>';
     html += '  <td style="white-space:nowrap;font-size:12px;color:#4b5563;">' + escHtml(time) + '</td>';
     html += '  <td><span class="badge badge-purple">' + escHtml(msnv) + '</span></td>';
@@ -3250,12 +3293,54 @@ function renderResponsesTable(rows) {
     html += '  <td style="font-size:12px;color:#4b5563;max-width:280px;">' + (previewAns || 'Đã trả lời ' + answersCount + ' câu hỏi') + '</td>';
     html += '  <td style="text-align:right;white-space:nowrap;">';
     html += '    <button class="btn-outline btn-sm" style="color:#4f46e5;border-color:#c7d2fe;margin-right:4px;" onclick="viewResponseDetail(' + idx + ')">👁️ Chi tiết</button>';
-    html += '    <button class="btn-danger btn-sm" style="font-size:12px;" onclick="allowRetake(' + r.id + ')" title="Xóa bài này và cho phép thiết bị/IP đó làm lại">🔓 Cho phép làm lại</button>';
+    html += '    <button class="btn-danger btn-sm" style="font-size:12px;" onclick="openRetakeModal(' + r.id + ')" title="Xóa bài này và cho phép thiết bị/IP đó làm lại">🔓 Cho phép làm lại</button>';
     html += '  </td>';
     html += '</tr>';
   });
 
   tbody.innerHTML = html;
+}
+
+function toggleSelectAllResponses(checked) {
+  var cbs = document.querySelectorAll(".resp-checkbox");
+  cbs.forEach(function(cb) { cb.checked = checked; });
+  updateSelectedResponsesCount();
+}
+
+function updateSelectedResponsesCount() {
+  var selected = document.querySelectorAll(".resp-checkbox:checked");
+  var btn = document.getElementById("batchDeleteResponsesBtn");
+  if (!btn) return;
+  if (selected.length > 0) {
+    btn.classList.remove("hidden");
+    btn.textContent = "🗑️ Xóa Đã Chọn (" + selected.length + ")";
+  } else {
+    btn.classList.add("hidden");
+  }
+}
+
+async function deleteSelectedResponses() {
+  var selected = Array.from(document.querySelectorAll(".resp-checkbox:checked")).map(function(cb){ return cb.value; });
+  if (selected.length === 0) return;
+
+  if (!confirm("Bạn có chắc chắn muốn xóa " + selected.length + " bài khảo sát đã chọn khỏi hệ thống?")) {
+    return;
+  }
+
+  showToast("Đang xóa " + selected.length + " bài khảo sát...", "info");
+  try {
+    var apiUrl = buildApiUrl("/api/responses?ids=" + encodeURIComponent(selected.join(',')));
+    var res = await fetch(apiUrl, {
+      method: "DELETE",
+      headers: { "x-admin-key": getAdminKeyForApi() }
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
+    showToast("Đã xóa " + selected.length + " bài khảo sát thành công!", "success");
+    await refreshDataList();
+  } catch(e) {
+    showToast("Xóa thất bại: " + e.message, "error");
+  }
 }
 
 function filterResponsesTable() {
@@ -3326,9 +3411,6 @@ function closeResponseModal() {
 async function exportDataToExcel() {
   var rows = AppState.cachedResponses;
   if (!rows || rows.length === 0) {
-    rows = await DB.getAllResponses();
-  }
-  if (!rows || rows.length === 0) {
     showToast("Chưa có dữ liệu phản hồi nào để xuất Excel.", "error");
     return;
   }
@@ -3367,20 +3449,18 @@ async function executePurgeData() {
   btn.disabled = true;
   btn.textContent = "⏳ Đang xóa dữ liệu...";
 
-  // Xóa trên Neon qua Pages Functions (pages.dev)
   try {
     var apiUrl = buildApiUrl("/api/responses");
-    await fetch(apiUrl, {
+    var res = await fetch(apiUrl, {
       method: "DELETE",
       headers: {
         "x-admin-key": getAdminKeyForApi()
       }
     });
+    if (!res.ok) throw new Error("HTTP " + res.status);
   } catch(err) {
-    console.warn("Không thể xóa dữ liệu từ backend:", err);
+    console.warn("Lỗi khi xóa dữ liệu từ backend:", err);
   }
-
-  await DB.clearAllResponses();
 
   AppState.cachedResponses = [];
   updateDashboardStats([]);
@@ -3391,6 +3471,7 @@ async function executePurgeData() {
   closePurgeModal();
 
   showToast("Đã xóa toàn bộ dữ liệu trên hệ thống thành công! Dung lượng đã được giải phóng.", "success");
+  await refreshDataList();
 }
 
 var __retakePendingId = null;
@@ -3516,19 +3597,53 @@ function copyWorkerCode() {
 
 async function renderSavedSurveysList() {
   var container = document.getElementById("savedSurveysContainer");
-  var list = await DB.getAllSurveys();
-
-  if (list.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có khảo sát nào được lưu. Hãy tạo khảo sát mới.</div>';
+  container.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280;">⏳ Đang tải danh sách khảo sát từ Neon Database...</div>';
+  
+  var list = [];
+  try {
+    var apiUrl = buildApiUrl("/api/surveys");
+    var res = await fetch(apiUrl);
+    if (res.ok) {
+      list = await res.json();
+    } else {
+      throw new Error("HTTP " + res.status);
+    }
+  } catch(e) {
+    console.warn("Lỗi tải surveys từ Neon API:", e);
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444;">⚠️ Không thể tải danh sách khảo sát: ' + escHtml(e.message) + '</div>';
     return;
   }
 
-  var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+  if (!Array.isArray(list) || list.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có khảo sát nào được lưu trên hệ thống. Hãy tạo khảo sát mới.</div>';
+    var batchBtn = document.getElementById("batchDeleteSurveysBtn");
+    if (batchBtn) batchBtn.classList.add("hidden");
+    return;
+  }
+
+  AppState.cachedSurveysList = list;
+
+  var html = '';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;">';
+  html += '  <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#374151;cursor:pointer;margin:0;">';
+  html += '    <input type="checkbox" id="selectAllSurveys" onchange="toggleSelectAllSurveys(this.checked)" style="width:16px;height:16px;cursor:pointer;">';
+  html += '    <span>Chọn tất cả khảo sát (' + list.length + ')</span>';
+  html += '  </label>';
+  html += '</div>';
+
+  html += '<div style="display:flex;flex-direction:column;gap:12px;">';
   list.forEach(function(s) {
-    html += '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">';
-    html += '  <div style="flex:1;min-width:200px;">';
-    html += '    <div style="font-weight:700;font-size:16px;color:#111827;">' + escHtml(s.title || "(Chưa đặt tiêu đề)") + '</div>';
-    html += '    <div style="font-size:12px;color:#6b7280;margin-top:3px;">Mã: <code>' + escHtml(s.id) + '</code> • Số câu hỏi: ' + (s.questions ? s.questions.length : 0) + ' • Cập nhật: ' + new Date(s.updatedAt || s.createdAt || Date.now()).toLocaleDateString('vi-VN') + '</div>';
+    var qCount = (s.questions && Array.isArray(s.questions)) ? s.questions.length : 0;
+    var updatedDate = s.updated_at || s.updatedAt || s.created_at || s.createdAt || Date.now();
+    try { updatedDate = new Date(updatedDate).toLocaleDateString('vi-VN'); } catch(e){}
+
+    html += '<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 1px 2px rgba(0,0,0,0.04);">';
+    html += '  <div style="display:flex;align-items:flex-start;gap:12px;flex:1;min-width:220px;">';
+    html += '    <input type="checkbox" class="survey-checkbox" value="' + escHtml(s.id) + '" onchange="updateSelectedSurveysCount()" style="width:18px;height:18px;margin-top:3px;cursor:pointer;">';
+    html += '    <div>';
+    html += '      <div style="font-weight:700;font-size:16px;color:#111827;">' + escHtml(s.title || "(Chưa đặt tiêu đề)") + '</div>';
+    html += '      <div style="font-size:12px;color:#6b7280;margin-top:4px;">Mã: <code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;color:#4f46e5;font-weight:600;">' + escHtml(s.id) + '</code> • Số câu hỏi: ' + qCount + ' • Cập nhật: ' + escHtml(updatedDate) + '</div>';
+    html += '    </div>';
     html += '  </div>';
     html += '  <div style="display:flex;gap:8px;flex-wrap:wrap;">';
     html += '    <button class="btn-outline btn-sm" onclick="loadSurveyToBuilder(\'' + escHtml(s.id) + '\')">✏️ Sửa</button>';
@@ -3539,18 +3654,77 @@ async function renderSavedSurveysList() {
   });
   html += '</div>';
   container.innerHTML = html;
+  updateSelectedSurveysCount();
+}
+
+function toggleSelectAllSurveys(checked) {
+  var cbs = document.querySelectorAll(".survey-checkbox");
+  cbs.forEach(function(cb) { cb.checked = checked; });
+  updateSelectedSurveysCount();
+}
+
+function updateSelectedSurveysCount() {
+  var selected = document.querySelectorAll(".survey-checkbox:checked");
+  var btn = document.getElementById("batchDeleteSurveysBtn");
+  if (!btn) return;
+  if (selected.length > 0) {
+    btn.classList.remove("hidden");
+    btn.textContent = "🗑️ Xóa Đã Chọn (" + selected.length + ")";
+  } else {
+    btn.classList.add("hidden");
+  }
+}
+
+async function deleteSelectedSurveys() {
+  var selected = Array.from(document.querySelectorAll(".survey-checkbox:checked")).map(function(cb){ return cb.value; });
+  if (selected.length === 0) return;
+
+  if (!confirm("Nếu xóa các mẫu khảo sát này (" + selected.length + " mẫu) thì toàn bộ bài khảo sát liên quan sẽ bị xóa. Xác nhận xóa?")) {
+    return;
+  }
+
+  showToast("Đang xóa " + selected.length + " khảo sát và bài nộp liên quan...", "info");
+  try {
+    var apiUrl = buildApiUrl("/api/surveys?ids=" + encodeURIComponent(selected.join(',')));
+    var res = await fetch(apiUrl, {
+      method: "DELETE",
+      headers: { "x-admin-key": getAdminKeyForApi() }
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
+    
+    // Nếu đang mở 1 trong các khảo sát bị xóa thì reset Builder
+    if (AppState.currentSurvey && selected.includes(AppState.currentSurvey.id)) {
+      createNewSurvey();
+    }
+
+    showToast("Đã xóa " + selected.length + " khảo sát thành công!", "success");
+    await renderSavedSurveysList();
+  } catch(e) {
+    showToast("Xóa thất bại: " + e.message, "error");
+  }
 }
 
 async function loadSurveyToBuilder(id) {
-  var list = await DB.getAllSurveys();
-  var s = list.find(function(item) { return item.id === id; });
-  if (s) {
-    AppState.currentSurvey = s;
-    document.getElementById("builderHeader").value = s.title;
-    document.getElementById("builderDesc").value = s.description;
-    renderQuestionsList();
-    switchAdminTab("builder");
-    showToast("Nạp khảo sát thành công!", "success");
+  showToast("Đang tải khảo sát...", "info");
+  try {
+    var apiUrl = buildApiUrl("/api/surveys?id=" + encodeURIComponent(id));
+    var res = await fetch(apiUrl);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    var s = await res.json();
+    if (s) {
+      if (typeof s.questions === "string") {
+        try { s.questions = JSON.parse(s.questions); } catch(e){}
+      }
+      AppState.currentSurvey = s;
+      document.getElementById("builderHeader").value = s.title || "";
+      document.getElementById("builderDesc").value = s.description || "";
+      renderQuestionsList();
+      switchAdminTab("builder");
+      showToast("Nạp khảo sát thành công!", "success");
+    }
+  } catch(e) {
+    showToast("Không thể tải khảo sát: " + e.message, "error");
   }
 }
 
@@ -3580,18 +3754,21 @@ async function confirmExecuteDeleteSurvey() {
   if (!id) return;
   closeDeleteSurveyModal();
   try {
-    await DB.deleteSurvey(id);
-    // Xóa trên Neon qua Pages Functions
-    try {
-      var apiUrl = buildApiUrl("/api/surveys?id=" + encodeURIComponent(id));
-      await fetch(apiUrl, { method: "Xóa", headers: { "x-admin-key": getAdminKeyForApi() } });
-    } catch(e) { console.warn("Xóa thất bại:", e); }
+    // Xóa trên Neon qua Pages Functions (xóa cả survey và orphan responses)
+    var apiUrl = buildApiUrl("/api/surveys?id=" + encodeURIComponent(id));
+    var res = await fetch(apiUrl, {
+      method: "DELETE",
+      headers: { "x-admin-key": getAdminKeyForApi() }
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if (!res.ok) throw new Error(data && data.error ? data.error : "HTTP " + res.status);
+
     // Nếu đang mở chính khảo sát này thì tạo mới
     if (AppState.currentSurvey && AppState.currentSurvey.id === id) {
       createNewSurvey();
     }
-    showToast("Đã xóa khảo sát " + id + " thành công!", "success");
-    renderSavedSurveysList();
+    showToast("Đã xóa khảo sát " + id + " và toàn bộ bài liên quan thành công!", "success");
+    await renderSavedSurveysList();
   } catch(err) {
     showToast("Xóa thất bại: " + err.message, "error");
   }
@@ -3679,41 +3856,18 @@ async function handleSurveyLoadWithLock(survey) {
     }
   } else if (hash.startsWith("#id=")) {
     var id = decodeURIComponent(hash.slice(4));
-    // Load survey by ID từ IndexedDB hoặc Neon (pages.dev) – có check lock IP/MSNV
+    // Load survey by ID từ Neon API (pages.dev) – có check lock IP/MSNV
     (async function loadById() {
       try {
-        var survey = null;
-        // 1. Thử IndexedDB trước (offline)
-        try {
-          var list = await DB.getAllSurveys();
-          var found = list.find(function(s){ return s.id === id; });
-          if (found) {
-            if (typeof found.questions === "string") {
-              try { found.questions = JSON.parse(found.questions); } catch(e){}
-            }
-            survey = found;
-          }
-        } catch(e){ console.warn("IndexedDB lookup failed:", e); }
-
-        // 2. Nếu chưa có, thử fetch từ Cloudflare Pages Functions (Neon)
-        if (!survey) {
-          var apiUrl = buildApiUrl("/api/surveys?id=" + encodeURIComponent(id));
-          var res = await fetch(apiUrl);
-          if (res.ok) {
-            var fetched = await res.json();
-            if (fetched) {
-              if (typeof fetched.questions === "string") {
-                try { fetched.questions = JSON.parse(fetched.questions); } catch(e){}
-              }
-              if (!fetched.id) fetched.id = id;
-              survey = fetched;
-            }
-          } else {
-            throw new Error("Survey not found on server (HTTP " + (res ? res.status : "unknown") + ")");
-          }
-        }
-
+        var apiUrl = buildApiUrl("/api/surveys?id=" + encodeURIComponent(id));
+        var res = await fetch(apiUrl);
+        if (!res.ok) throw new Error("Survey not found on server (HTTP " + res.status + ")");
+        var survey = await res.json();
         if (!survey) throw new Error("Survey not found");
+        if (typeof survey.questions === "string") {
+          try { survey.questions = JSON.parse(survey.questions); } catch(e){}
+        }
+        if (!survey.id) survey.id = id;
         await handleSurveyLoadWithLock(survey);
       } catch(err) {
         console.error("Load survey by ID failed:", err);
@@ -3724,15 +3878,18 @@ async function handleSurveyLoadWithLock(survey) {
     return;
   }
 
-  // ADMIN MODE: yêu cầu đăng nhập
+  // ADMIN MODE: yêu cầu đăng nhập – không tự nạp mẫu, Builder trắng
   var authed = checkAdminAuthOnLoad();
   if (!authed) return;
-  loadBootcampPreset();
-  // Không tự động lưu – chỉ nạp mẫu hiển thị, Link/QR chỉ sinh khi bấm LƯU
+  // Reset Builder về trắng (không tự nạp preset) – muốn mẫu phải bấm Nạp Mẫu!
+  AppState.currentSurvey = { id: "SV-LP-" + Math.floor(100000 + Math.random() * 900000), title: "", description: "", questions: [] };
+  document.getElementById("builderHeader").value = "";
+  document.getElementById("builderDesc").value = "";
+  renderQuestionsList();
   setTimeout(function(){
     var linkEl = document.getElementById("surveyShareLink");
     if (linkEl) {
-      linkEl.textContent = "Chưa lưu khảo sát. Bấm \"LƯU KHẢO SÁT & TẠO LINK / QR CODE\" để tạo link.";
+      linkEl.textContent = "Chưa lưu khảo sát. Bấm \"LƯU KHẢO SÁT & TẠO LINK / QR CODE\" để sinh link.";
       linkEl.removeAttribute("data-url");
       linkEl.style.borderColor = "";
       linkEl.style.background = "";
@@ -3744,7 +3901,7 @@ async function handleSurveyLoadWithLock(survey) {
         if (ctx) { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,canvas.width,canvas.height); }
       } catch(e){}
     }
-    showToast("Nạp mẫu khảo sát thành công.", "info");
+    showToast("Hệ thống sẵn sàng. Bấm 'Nạp Mẫu!' để tải mẫu khảo sát.", "info");
   }, 100);
 })();
 

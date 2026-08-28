@@ -198,6 +198,25 @@ export async function onRequest(context) {
       });
     }
 
+    // Storage: GET /api/storage – trả % đầy 0.5GB Free
+    if (path === '/api/storage' && request.method === 'GET') {
+      if (!isAdminAuthorized(request, env)) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      try {
+        const rows = await queryNeon(DB_URL, `SELECT pg_database_size(current_database())::bigint as size`);
+        const size = Number(rows[0]?.size || rows[0]?.pg_database_size || 0);
+        const limit = 536870912; // 0.5 GB Neon Free
+        const percent = Math.min(100, (size / limit) * 100);
+        const pretty = (size / 1024 / 1024).toFixed(2) + ' MB / 512 MB';
+        return new Response(JSON.stringify({ size, limit, percent: Number(percent.toFixed(2)), pretty }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch(e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // Đảm bảo các bảng surveys và responses đã được tạo trong Neon
     await ensureTables(DB_URL);
 
@@ -378,10 +397,20 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ error: 'Unauthorized - cần đăng nhập admin' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const id = url.searchParams.get('id');
+      const ids = url.searchParams.get('ids');
       const surveyId = url.searchParams.get('survey_id');
       const msnv = url.searchParams.get('msnv') || url.searchParams.get('employee_msnv');
       const ip = url.searchParams.get('ip') || url.searchParams.get('client_ip');
 
+      if (ids) {
+        var idList = ids.split(',').map(function(s){return s.trim();}).filter(Boolean);
+        for (var k=0;k<idList.length;k++) {
+          await queryNeon(DB_URL, `DELETE FROM responses WHERE id = $1;`, [idList[k]]);
+        }
+        return new Response(JSON.stringify({ success: true, message: 'Đã xóa '+idList.length+' bài nộp', ids: idList }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       if (id) {
         await queryNeon(DB_URL, `DELETE FROM responses WHERE id = $1;`, [id]);
         return new Response(JSON.stringify({ success: true, message: 'Đã xóa bài nộp id=' + id + ' và mở khóa cho thiết bị/IP đó.' }), {
@@ -437,14 +466,18 @@ export async function onRequest(context) {
       });
     }
 
-    // 7. Lấy thông tin khảo sát: GET /api/surveys?id=...
+    // 7. Lấy thông tin khảo sát: GET /api/surveys?id=... hoặc list all khi không có id
     if (path === '/api/surveys' && request.method === 'GET') {
       const id = url.searchParams.get('id');
       if (!id) {
-        return new Response(JSON.stringify({ error: 'Survey ID required' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        // List all – dùng cho Khảo Sát Đã Lưu (chỉ fetch khi mở tab, không quét liên tục)
+        const rows = await queryNeon(DB_URL, `SELECT id, title, description, questions, created_at, updated_at FROM surveys ORDER BY updated_at DESC LIMIT 100;`);
+        const list = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
+        const normalized = list.map(function(s){
+          if (typeof s.questions === 'string') { try { s.questions = JSON.parse(s.questions); } catch(e){} }
+          return s;
         });
+        return new Response(JSON.stringify(normalized), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       const rows = await queryNeon(DB_URL, `SELECT * FROM surveys WHERE id = $1 LIMIT 1;`, [id]);
@@ -467,21 +500,34 @@ export async function onRequest(context) {
       });
     }
 
-    // 8. Xóa khảo sát: DELETE /api/surveys?id=...
+    // 8. Xóa khảo sát: DELETE /api/surveys?id=... hoặc ids=... (xóa cả orphan responses)
     if (path === '/api/surveys' && request.method === 'DELETE') {
       if (!isAdminAuthorized(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized - cần đăng nhập admin' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const id = url.searchParams.get('id');
+      const ids = url.searchParams.get('ids');
+      if (ids) {
+        const idList = ids.split(',').map(function(s){return s.trim();}).filter(Boolean);
+        for (var k=0;k<idList.length;k++) {
+          var sid = idList[k];
+          await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id = $1;`, [sid]);
+          await queryNeon(DB_URL, `DELETE FROM surveys WHERE id = $1;`, [sid]);
+        }
+        return new Response(JSON.stringify({ success: true, message: 'Đã xóa '+idList.length+' khảo sát và toàn bộ bài liên quan', ids: idList }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       if (!id) {
         return new Response(JSON.stringify({ error: 'Survey ID required' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-
+      // Xóa orphan responses trước
+      await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id = $1;`, [id]);
       await queryNeon(DB_URL, `DELETE FROM surveys WHERE id = $1;`, [id]);
-      return new Response(JSON.stringify({ success: true, message: 'Survey deleted', id }), {
+      return new Response(JSON.stringify({ success: true, message: 'Đã xóa khảo sát và toàn bộ bài liên quan', id }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
