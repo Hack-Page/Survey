@@ -94,7 +94,7 @@ async function ensureTables(dbUrl) {
     `CREATE INDEX IF NOT EXISTS idx_resp_survey ON responses(survey_id);`,
     `CREATE INDEX IF NOT EXISTS idx_resp_msnv ON responses(employee_msnv);`,
     `CREATE INDEX IF NOT EXISTS idx_resp_ip ON responses(client_ip);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_resp_survey_ip_unique ON responses(survey_id, client_ip) WHERE client_ip IS NOT NULL AND client_ip <> '';`,
+    `DROP INDEX IF EXISTS idx_resp_survey_ip_unique;`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_resp_survey_msnv_unique ON responses(survey_id, employee_msnv) WHERE employee_msnv IS NOT NULL AND employee_msnv <> '';`
   ];
 
@@ -185,90 +185,86 @@ export default {
       // Đảm bảo các bảng surveys và responses đã được tạo trong Neon
       await ensureTables(DB_URL);
 
-      // CHECK đã nộp chưa
-      if (path === '/api/responses/check' && request.method === 'GET') {
-        const surveyId = url.searchParams.get('survey_id') || url.searchParams.get('surveyId') || url.searchParams.get('id');
-        const msnvRaw = (url.searchParams.get('msnv') || url.searchParams.get('employee_msnv') || '').trim();
-        const msnv = msnvRaw.toUpperCase();
-        const clientIp = getClientIP(request);
-        if (!surveyId) return new Response(JSON.stringify({ error: 'survey_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        let rows = [];
-        if (msnv && clientIp) {
-          rows = await queryNeon(DB_URL, `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip FROM responses WHERE survey_id = $1 AND (client_ip = $2 OR UPPER(employee_msnv) = $3) LIMIT 1;`, [surveyId, clientIp, msnv]);
-        } else if (clientIp) {
-          rows = await queryNeon(DB_URL, `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip FROM responses WHERE survey_id = $1 AND client_ip = $2 LIMIT 1;`, [surveyId, clientIp]);
-        } else if (msnv) {
-          rows = await queryNeon(DB_URL, `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip FROM responses WHERE survey_id = $1 AND UPPER(employee_msnv) = $2 LIMIT 1;`, [surveyId, msnv]);
-        }
-        const rowsList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
-        if (rowsList.length > 0) {
-          const r = rowsList[0];
-          let parsedAnswers = r.answers;
-          if (typeof parsedAnswers === 'string') { try{parsedAnswers=JSON.parse(parsedAnswers);}catch(e){parsedAnswers=[];} }
-          return new Response(JSON.stringify({ submitted: true, reason: (clientIp && r.client_ip===clientIp)?'ip':'msnv', client_ip: clientIp, response: {...r, answers: parsedAnswers||[]} }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        } else {
-          return new Response(JSON.stringify({ submitted: false, client_ip: clientIp }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-      }
+        // CHECK đã nộp chưa: Chỉ kiểm tra khi có msnv (Mã Số Nhân Viên).
+        // TUYỆT ĐỐI KHÔNG kiểm tra trùng theo IP đơn thuần, tránh chặn nhầm khi nhiều máy dùng chung wifi/4G.
+        if (path === '/api/responses/check' && request.method === 'GET') {
+          const surveyId = url.searchParams.get('survey_id') || url.searchParams.get('surveyId') || url.searchParams.get('id');
+          const msnvRaw = (url.searchParams.get('msnv') || url.searchParams.get('employee_msnv') || '').trim();
+          const msnv = msnvRaw.toUpperCase();
+          const clientIp = getClientIP(request);
+          if (!surveyId) return new Response(JSON.stringify({ error: 'survey_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-      // 2. Nộp bài khảo sát từ người làm (Submit Response) – có chặn trùng IP+MSNV
-      if (path === '/api/responses' && request.method === 'POST') {
-        const body = await request.json();
-        const {
-          survey_id,
-          employee_msnv,
-          employee_name,
-          employee_dept,
-          answers,
-          submitted_at
-        } = body;
-
-        const clientIp = getClientIP(request);
-        const msnvTrimRaw = (employee_msnv||'').trim();
-        const msnvTrim = msnvTrimRaw.toUpperCase();
-        const sid = survey_id || 'DEFAULT';
-
-        if (msnvTrim && !/^LEP[A-Z0-9]+$/.test(msnvTrim)) {
-          return new Response(JSON.stringify({ success:false, error:'MSNV phải bắt đầu bằng "LEP" và sau LEP chỉ chứa chữ/số (ví dụ: LEP123, LEPA12). Bạn đã nhập: '+msnvTrimRaw }), { status:400, headers:{...corsHeaders,'Content-Type':'application/json'}});
-        }
-
-        if (sid && (clientIp || msnvTrim)) {
-          let dupRows=[];
-          if (clientIp && msnvTrim) dupRows = await queryNeon(DB_URL, `SELECT id FROM responses WHERE survey_id=$1 AND (client_ip=$2 OR UPPER(employee_msnv)=$3) LIMIT 1;`, [sid, clientIp, msnvTrim]);
-          else if (clientIp) dupRows = await queryNeon(DB_URL, `SELECT id FROM responses WHERE survey_id=$1 AND client_ip=$2 LIMIT 1;`, [sid, clientIp]);
-          else if (msnvTrim) dupRows = await queryNeon(DB_URL, `SELECT id FROM responses WHERE survey_id=$1 AND UPPER(employee_msnv)=$2 LIMIT 1;`, [sid, msnvTrim]);
-          const dupList = Array.isArray(dupRows)?dupRows:(dupRows&&dupRows.rows?dupRows.rows:[]);
-          if (dupList.length>0) return new Response(JSON.stringify({ success:false, error:'Bạn đã nộp khảo sát này rồi. Mỗi thiết bị/IP và MSNV chỉ được tham gia 1 lần. Nếu muốn làm lại hãy liên hệ nhân sự.' }), { status:409, headers:{...corsHeaders,'Content-Type':'application/json'}});
-        }
-
-        const answersStr = typeof answers === 'string' ? answers : JSON.stringify(answers || []);
-        try {
-          const result = await queryNeon(
-            DB_URL,
-            `INSERT INTO responses (survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip)
-             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
-             RETURNING id;`,
-            [
-              sid,
-              msnvTrim || '',
-              employee_name || '',
-              employee_dept || '',
-              answersStr,
-              submitted_at || new Date().toISOString(),
-              clientIp || ''
-            ]
-          );
-          const insertedId = (Array.isArray(result) && result.length > 0) ? (result[0].id || result[0]) : result;
-          return new Response(JSON.stringify({ success: true, id: insertedId, client_ip: clientIp }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        } catch(e){
-          if (e.message && (e.message.includes('duplicate')||e.message.includes('unique')||e.message.includes('idx_resp_'))) {
-            return new Response(JSON.stringify({ success:false, error:'Bạn đã nộp khảo sát này rồi (trùng IP/MSNV). Vui lòng liên hệ nhân sự nếu muốn làm lại.' }), { status:409, headers:{...corsHeaders,'Content-Type':'application/json'}});
+          if (!msnv) {
+            return new Response(JSON.stringify({ submitted: false, client_ip: clientIp }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
           }
-          throw e;
+
+          const rows = await queryNeon(DB_URL, `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip FROM responses WHERE survey_id = $1 AND UPPER(employee_msnv) = $2 LIMIT 1;`, [surveyId, msnv]);
+          const rowsList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
+          if (rowsList.length > 0) {
+            const r = rowsList[0];
+            let parsedAnswers = r.answers;
+            if (typeof parsedAnswers === 'string') { try{parsedAnswers=JSON.parse(parsedAnswers);}catch(e){parsedAnswers=[];} }
+            return new Response(JSON.stringify({ submitted: true, reason: 'msnv', client_ip: clientIp, response: {...r, answers: parsedAnswers||[]} }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          } else {
+            return new Response(JSON.stringify({ submitted: false, client_ip: clientIp }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
         }
-      }
+
+        // 2. Nộp bài khảo sát từ người làm (Submit Response) – chặn trùng theo MSNV
+        if (path === '/api/responses' && request.method === 'POST') {
+          const body = await request.json();
+          const {
+            survey_id,
+            employee_msnv,
+            employee_name,
+            employee_dept,
+            answers,
+            submitted_at
+          } = body;
+
+          const clientIp = getClientIP(request);
+          const msnvTrimRaw = (employee_msnv||'').trim();
+          const msnvTrim = msnvTrimRaw.toUpperCase();
+          const sid = survey_id || 'DEFAULT';
+
+          if (msnvTrim && !/^LEP[A-Z0-9]+$/.test(msnvTrim)) {
+            return new Response(JSON.stringify({ success:false, error:'MSNV phải bắt đầu bằng "LEP" và sau LEP chỉ chứa chữ/số (ví dụ: LEP123, LEPA12). Bạn đã nhập: '+msnvTrimRaw }), { status:400, headers:{...corsHeaders,'Content-Type':'application/json'}});
+          }
+
+          if (sid && msnvTrim) {
+            const dupRows = await queryNeon(DB_URL, `SELECT id FROM responses WHERE survey_id=$1 AND UPPER(employee_msnv)=$2 LIMIT 1;`, [sid, msnvTrim]);
+            const dupList = Array.isArray(dupRows)?dupRows:(dupRows&&dupRows.rows?dupRows.rows:[]);
+            if (dupList.length>0) return new Response(JSON.stringify({ success:false, error:'Mã số nhân viên (' + msnvTrim + ') đã nộp bài khảo sát này rồi. Mỗi nhân viên chỉ được tham gia 1 lần. Nếu muốn làm lại hãy liên hệ nhân sự.' }), { status:409, headers:{...corsHeaders,'Content-Type':'application/json'}});
+          }
+
+          const answersStr = typeof answers === 'string' ? answers : JSON.stringify(answers || []);
+          try {
+            const result = await queryNeon(
+              DB_URL,
+              `INSERT INTO responses (survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip)
+               VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
+               RETURNING id;`,
+              [
+                sid,
+                msnvTrim || '',
+                employee_name || '',
+                employee_dept || '',
+                answersStr,
+                submitted_at || new Date().toISOString(),
+                clientIp || ''
+              ]
+            );
+            const insertedId = (Array.isArray(result) && result.length > 0) ? (result[0].id || result[0]) : result;
+            return new Response(JSON.stringify({ success: true, id: insertedId, client_ip: clientIp }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          } catch(e){
+            if (e.message && (e.message.includes('duplicate')||e.message.includes('unique')||e.message.includes('idx_resp_'))) {
+              return new Response(JSON.stringify({ success:false, error:'Mã số nhân viên (' + msnvTrim + ') đã nộp bài khảo sát này rồi. Vui lòng liên hệ nhân sự nếu muốn làm lại.' }), { status:409, headers:{...corsHeaders,'Content-Type':'application/json'}});
+            }
+            throw e;
+          }
+        }
 
       // 3. Lấy danh sách kết quả phản hồi cho Admin (Get Responses) - yêu cầu admin
       if (path === '/api/responses' && request.method === 'GET') {

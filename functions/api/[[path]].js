@@ -103,7 +103,7 @@ async function ensureTables(dbUrl) {
     `CREATE INDEX IF NOT EXISTS idx_resp_survey ON responses(survey_id);`,
     `CREATE INDEX IF NOT EXISTS idx_resp_msnv ON responses(employee_msnv);`,
     `CREATE INDEX IF NOT EXISTS idx_resp_ip ON responses(client_ip);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_resp_survey_ip_unique ON responses(survey_id, client_ip) WHERE client_ip IS NOT NULL AND client_ip <> '';`,
+    `DROP INDEX IF EXISTS idx_resp_survey_ip_unique;`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_resp_survey_msnv_unique ON responses(survey_id, employee_msnv) WHERE employee_msnv IS NOT NULL AND employee_msnv <> '';`
   ];
 
@@ -231,30 +231,21 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ error: 'survey_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      // Tìm bản ghi trùng IP hoặc MSNV trên cùng survey_id (case-insensitive cho MSNV)
-      let rows = [];
-      if (msnv && clientIp) {
-        rows = await queryNeon(
-          DB_URL,
-          `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip
-           FROM responses WHERE survey_id = $1 AND (client_ip = $2 OR UPPER(employee_msnv) = $3) LIMIT 1;`,
-          [surveyId, clientIp, msnv]
-        );
-      } else if (clientIp) {
-        rows = await queryNeon(
-          DB_URL,
-          `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip
-           FROM responses WHERE survey_id = $1 AND client_ip = $2 LIMIT 1;`,
-          [surveyId, clientIp]
-        );
-      } else if (msnv) {
-        rows = await queryNeon(
-          DB_URL,
-          `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip
-           FROM responses WHERE survey_id = $1 AND UPPER(employee_msnv) = $2 LIMIT 1;`,
-          [surveyId, msnv]
-        );
+      // Chỉ kiểm tra khi có msnv (Mã Số Nhân Viên)
+      // TUYỆT ĐỐI KHÔNG kiểm tra trùng theo IP đơn thuần, vì môi trường công ty/nhà máy/wifi/4G NAT
+      // hàng trăm thiết bị dùng chung 1 IP công cộng. Nếu check IP thì máy khác vừa quét QR chưa làm gì đã bị chặn nhầm.
+      if (!msnv) {
+        return new Response(JSON.stringify({ submitted: false, client_ip: clientIp }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
+
+      const rows = await queryNeon(
+        DB_URL,
+        `SELECT id, survey_id, employee_msnv, employee_name, employee_dept, answers, submitted_at, client_ip
+         FROM responses WHERE survey_id = $1 AND UPPER(employee_msnv) = $2 LIMIT 1;`,
+        [surveyId, msnv]
+      );
 
       const rowsList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
       if (rowsList.length > 0) {
@@ -263,7 +254,7 @@ export async function onRequest(context) {
         if (typeof parsedAnswers === 'string') { try { parsedAnswers = JSON.parse(parsedAnswers); } catch(e){ parsedAnswers = []; } }
         return new Response(JSON.stringify({
           submitted: true,
-          reason: (clientIp && r.client_ip === clientIp) ? 'ip' : 'msnv',
+          reason: 'msnv',
           client_ip: clientIp,
           response: { ...r, answers: parsedAnswers || [] }
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -297,25 +288,19 @@ export async function onRequest(context) {
         }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      // Kiểm tra trùng: IP hoặc MSNV đã nộp cho survey này chưa
-      if (sid && (clientIp || msnvTrim)) {
-        let dupRows = [];
-        if (clientIp && msnvTrim) {
-          dupRows = await queryNeon(
-            DB_URL,
-            `SELECT id FROM responses WHERE survey_id = $1 AND (client_ip = $2 OR UPPER(employee_msnv) = $3) LIMIT 1;`,
-            [sid, clientIp, msnvTrim]
-          );
-        } else if (clientIp) {
-          dupRows = await queryNeon(DB_URL, `SELECT id FROM responses WHERE survey_id = $1 AND client_ip = $2 LIMIT 1;`, [sid, clientIp]);
-        } else if (msnvTrim) {
-          dupRows = await queryNeon(DB_URL, `SELECT id FROM responses WHERE survey_id = $1 AND UPPER(employee_msnv) = $2 LIMIT 1;`, [sid, msnvTrim]);
-        }
+      // Kiểm tra trùng: Mỗi MSNV chỉ được nộp 1 lần cho khảo sát này
+      // (client_ip vẫn được lưu vào DB để admin theo dõi/đối soát, nhưng KHÔNG dùng để chặn trùng giữa các nhân viên)
+      if (sid && msnvTrim) {
+        const dupRows = await queryNeon(
+          DB_URL,
+          `SELECT id FROM responses WHERE survey_id = $1 AND UPPER(employee_msnv) = $2 LIMIT 1;`,
+          [sid, msnvTrim]
+        );
         const dupList = Array.isArray(dupRows) ? dupRows : (dupRows && dupRows.rows ? dupRows.rows : []);
         if (dupList.length > 0) {
           return new Response(JSON.stringify({
             success: false,
-            error: 'Bạn đã nộp khảo sát này rồi. Mỗi thiết bị/IP và MSNV chỉ được tham gia 1 lần. Nếu muốn làm lại hãy liên hệ nhân sự.'
+            error: 'Mã số nhân viên (' + msnvTrim + ') đã nộp khảo sát này rồi. Mỗi nhân viên chỉ được tham gia 1 lần. Nếu muốn làm lại hãy liên hệ nhân sự.'
           }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
@@ -346,7 +331,7 @@ export async function onRequest(context) {
         if (e.message && (e.message.includes('duplicate') || e.message.includes('unique') || e.message.includes('idx_resp_'))) {
           return new Response(JSON.stringify({
             success: false,
-            error: 'Bạn đã nộp khảo sát này rồi (trùng IP/MSNV). Vui lòng liên hệ nhân sự nếu muốn làm lại.'
+            error: 'Mã số nhân viên (' + msnvTrim + ') đã nộp bài khảo sát này rồi. Vui lòng liên hệ nhân sự nếu muốn làm lại.'
           }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
         throw e;

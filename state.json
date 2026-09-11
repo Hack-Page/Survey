@@ -71,7 +71,7 @@
     "dbSchema": {
       "surveys": "id VARCHAR64 PK, title TEXT, description TEXT, questions JSONB, created_at/updated_at",
       "responses": "id SERIAL PK, survey_id, employee_msnv, employee_name, employee_dept, answers JSONB, submitted_at, client_ip, survey_title",
-      "indexes": "idx_resp_survey, idx_resp_msnv, idx_resp_ip, UNIQUE partial idx_resp_survey_ip_unique, idx_resp_survey_msnv_unique",
+      "indexes": "idx_resp_survey, idx_resp_msnv, idx_resp_ip, UNIQUE partial idx_resp_survey_msnv_unique (idx_resp_survey_ip_unique dropped to prevent shared NAT/Wi-Fi false locks)",
       "neonColdStart": "Free tier auto-suspend sau ~5 phút idle; lần query đầu wake compute 0.8-2.5s (thường), 3-5s nếu DB lớn/network chậm; HTTP API https://<host>/sql cũng trigger wake; streaming fake 15->88% trong 220-260ms interval giúp UX không đứng hình"
     },
     "notTouchArchitecture": [
@@ -95,7 +95,7 @@
   "logicMatrix": {
     "Auth": { "flow": "handleAdminLogin POST /api/admin/login -> localStorage flag -> isAdminAuthorized check x-admin-key === env pass -> NOW PROTECTED: POST surveys, GET list surveys, GET responses require auth (fixed), single survey GET ?id= public, storage/delete already auth", "status": "FIXED 2026-08-28, verified frontend sends header", "fileLines": ["index.html:1296-1380", "worker.js:342-343,372-375,274-275", "functions/api/[[path]].js:440-442,470-473,357-359"] },
     "MSNV": { "flow": "handleMsnvFocus/Input LEP upper -> isValidMsnv LEP+[A-Za-z0-9]+ -> proceedToQuestions upper -> backend LEP+[A-Z0-9]+", "status": "OK", "fileLines": ["index.html:2838-2860"] },
-    "IP_Lock": { "flow": "getClientIP CF header -> checkSubmissionLock GET /api/responses/check?survey_id&msnv (public) -> showLockedThankYou + localStorage -> proceed/submit dup check OR", "status": "OK", "fileLines": ["worker.js:18-23", "index.html:2339-2354"] },
+    "IP_Lock": { "flow": "getClientIP CF header -> checkSubmissionLock GET /api/responses/check?survey_id&msnv (public) -> lock strictly by MSNV, never by IP alone (dropped idx_resp_survey_ip_unique) -> avoid false lock on shared Wi-Fi/4G CGNAT", "status": "FIXED 2026-09-11", "fileLines": ["worker.js:188-212", "functions/api/[[path]].js:224-273", "index.html:2404-2442,3900-3940"] },
     "SurveyCRUD": { "flow": "createNewSurvey random -> save POST (auth) -> list GET (auth) -> single GET public -> delete auth orphan -> batch loop keep sequential", "status": "OK, loop kept per Q5", "fileLines": ["index.html:3647-3715", "worker.js:342-419"] },
     "ResponseSubmit": { "flow": "proceed lock -> submit POST public -> 409 lock thankyou -> success localStorage -> error re-enable (keep error, no offline queue per Q4)", "status": "OK per Q4", "fileLines": ["index.html:3100-3160"] },
     "Excel": { "flow": "manual ZIP styles light blue header black", "status": "OK", "fileLines": ["index.html:1899-2203"] },
