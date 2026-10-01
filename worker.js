@@ -38,6 +38,44 @@ function isAdminAuthorized(request, env) {
   return token === creds.pass;
 }
 
+// === HỖ TRỢ ẢNH ĐÍNH KÈM (R2 binding IMAGES_BUCKET) ===
+const IMAGE_KEY_RE = /^img\/[A-Za-z0-9._-]+$/;
+
+function extractImageKeys(answers) {
+  let list = answers;
+  if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
+  if (!Array.isArray(list)) return [];
+  const keys = [];
+  for (const a of list) {
+    if (a && Array.isArray(a.images)) {
+      for (const k of a.images) {
+        if (typeof k === 'string' && IMAGE_KEY_RE.test(k)) keys.push(k);
+      }
+    }
+  }
+  return keys;
+}
+
+// Thu thập key ảnh từ các bài nộp khớp điều kiện WHERE (trước khi xóa để dọn R2)
+async function collectImageKeys(dbUrl, whereSql, params = []) {
+  try {
+    const rows = await queryNeon(dbUrl, `SELECT answers FROM responses WHERE ${whereSql};`, params);
+    const list = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
+    const keys = [];
+    for (const r of list) keys.push(...extractImageKeys(r.answers));
+    return keys;
+  } catch (e) {
+    console.warn('Collect image keys warning:', e.message);
+    return [];
+  }
+}
+
+async function deleteImageKeys(env, keys) {
+  const uniq = Array.from(new Set(keys || []));
+  if (!uniq.length || !env.IMAGES_BUCKET) return;
+  try { await env.IMAGES_BUCKET.delete(uniq); } catch (e) { console.warn('R2 image cleanup warning:', e.message); }
+}
+
 async function queryNeon(dbUrl, sql, params = []) {
   const host = getNeonHost(dbUrl);
   if (!host) throw new Error('DATABASE_URL không hợp lệ, không thể trích xuất host Neon');
@@ -185,6 +223,71 @@ export default {
       // Đảm bảo các bảng surveys và responses đã được tạo trong Neon
       await ensureTables(DB_URL);
 
+      // 1b. UPLOAD ẢNH ĐÍNH KÈM: POST /api/images  (public – người tham gia nộp, nén sẵn phía client)
+      if (path === '/api/images' && request.method === 'POST') {
+        if (!env.IMAGES_BUCKET) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Chưa cấu hình R2 binding IMAGES_BUCKET (tạo bucket "imagesurvey" và khai báo binding)'
+          }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const body = await request.json().catch(() => null);
+        if (!body || !body.data) {
+          return new Response(JSON.stringify({ success: false, error: 'Thiếu dữ liệu ảnh (data base64)' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const contentType = String(body.contentType || 'image/jpeg').toLowerCase();
+        if (!/^image\/(jpeg|jpg|png|webp|gif|bmp)$/.test(contentType)) {
+          return new Response(JSON.stringify({ success: false, error: 'Định dạng ảnh không hợp lệ' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const b64 = String(body.data).replace(/\s+/g, '');
+        if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) {
+          return new Response(JSON.stringify({ success: false, error: 'Base64 ảnh không hợp lệ' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const approxBytes = Math.floor(b64.length * 3 / 4);
+        if (approxBytes > 5 * 1024 * 1024) {
+          return new Response(JSON.stringify({ success: false, error: 'Ảnh vượt quá 5MB sau nén' }), { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        let bytes;
+        try {
+          const bin = atob(b64);
+          bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: 'Không giải mã được ảnh' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const extMap = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/bmp': 'bmp' };
+        const ext = extMap[contentType] || 'jpg';
+        const key = 'img/' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10) + '.' + ext;
+        try {
+          await env.IMAGES_BUCKET.put(key, bytes, { httpMetadata: { contentType } });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: 'Lưu ảnh lên R2 thất bại: ' + e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ success: true, key }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // 1c. LẤY ẢNH: GET /api/images/<key>  – CHỈ ADMIN (x-admin-key), người tham gia không xem được qua link
+      if (path.startsWith('/api/images/') && request.method === 'GET') {
+        if (!isAdminAuthorized(request, env)) {
+          return new Response(JSON.stringify({ error: 'Unauthorized - cần đăng nhập admin' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        if (!env.IMAGES_BUCKET) {
+          return new Response(JSON.stringify({ error: 'Chưa cấu hình R2 binding IMAGES_BUCKET' }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const key = decodeURIComponent(path.slice('/api/images/'.length));
+        if (!IMAGE_KEY_RE.test(key)) {
+          return new Response(JSON.stringify({ error: 'Key ảnh không hợp lệ' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const obj = await env.IMAGES_BUCKET.get(key);
+        if (!obj) {
+          return new Response(JSON.stringify({ error: 'Ảnh không tồn tại' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const headers = new Headers(corsHeaders);
+        headers.set('Content-Type', (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/jpeg');
+        headers.set('Cache-Control', 'private, max-age=3600');
+        return new Response(obj.body, { headers });
+      }
+
         // CHECK đã nộp chưa: Chỉ kiểm tra khi có msnv (Mã Số Nhân Viên).
         // TUYỆT ĐỐI KHÔNG kiểm tra trùng theo IP đơn thuần, tránh chặn nhầm khi nhiều máy dùng chung wifi/4G.
         if (path === '/api/responses/check' && request.method === 'GET') {
@@ -312,23 +415,47 @@ export default {
         const surveyId = url.searchParams.get('survey_id');
         const msnv = url.searchParams.get('msnv')||url.searchParams.get('employee_msnv');
         const ip = url.searchParams.get('ip')||url.searchParams.get('client_ip');
+        // Thu thập key ảnh R2 TRƯỚC khi xóa bài để dọn ảnh đính kèm (tránh rác R2)
+        let imageKeys = [];
         if (ids) {
           var idList = ids.split(',').map(function(s){return s.trim();}).filter(Boolean);
           for (var k=0;k<idList.length;k++) {
+            imageKeys.push(...await collectImageKeys(DB_URL, 'id = $1', [idList[k]]));
+          }
+          for (var k=0;k<idList.length;k++) {
             await queryNeon(DB_URL, `DELETE FROM responses WHERE id = $1;`, [idList[k]]);
           }
+          await deleteImageKeys(env, imageKeys);
           return new Response(JSON.stringify({ success: true, message: 'Đã xóa '+idList.length+' bài nộp', ids: idList }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
-        if (id) { await queryNeon(DB_URL, `DELETE FROM responses WHERE id=$1;`,[id]); return new Response(JSON.stringify({success:true,message:'Đã xóa bài nộp id='+id}),{headers:{...corsHeaders,'Content-Type':'application/json'}}); }
-        if (surveyId && msnv) { await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id=$1 AND employee_msnv=$2;`,[surveyId,msnv]); return new Response(JSON.stringify({success:true}),{headers:{...corsHeaders,'Content-Type':'application/json'}}); }
-        if (surveyId && ip) { await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id=$1 AND client_ip=$2;`,[surveyId,ip]); return new Response(JSON.stringify({success:true}),{headers:{...corsHeaders,'Content-Type':'application/json'}}); }
+        if (id) {
+          imageKeys = await collectImageKeys(DB_URL, 'id = $1', [id]);
+          await queryNeon(DB_URL, `DELETE FROM responses WHERE id=$1;`,[id]);
+          await deleteImageKeys(env, imageKeys);
+          return new Response(JSON.stringify({success:true,message:'Đã xóa bài nộp id='+id}),{headers:{...corsHeaders,'Content-Type':'application/json'}});
+        }
+        if (surveyId && msnv) {
+          imageKeys = await collectImageKeys(DB_URL, 'survey_id = $1 AND employee_msnv = $2', [surveyId, msnv]);
+          await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id=$1 AND employee_msnv=$2;`,[surveyId,msnv]);
+          await deleteImageKeys(env, imageKeys);
+          return new Response(JSON.stringify({success:true}),{headers:{...corsHeaders,'Content-Type':'application/json'}});
+        }
+        if (surveyId && ip) {
+          imageKeys = await collectImageKeys(DB_URL, 'survey_id = $1 AND client_ip = $2', [surveyId, ip]);
+          await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id=$1 AND client_ip=$2;`,[surveyId,ip]);
+          await deleteImageKeys(env, imageKeys);
+          return new Response(JSON.stringify({success:true}),{headers:{...corsHeaders,'Content-Type':'application/json'}});
+        }
         if (surveyId) {
+          imageKeys = await collectImageKeys(DB_URL, 'survey_id = $1', [surveyId]);
           await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id = $1;`, [surveyId]);
         } else {
+          imageKeys = await collectImageKeys(DB_URL, '1=1');
           await queryNeon(DB_URL, `TRUNCATE TABLE responses;`);
         }
+        await deleteImageKeys(env, imageKeys);
 
         return new Response(JSON.stringify({ success: true, message: 'All response data purged successfully.' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -398,20 +525,32 @@ export default {
         const ids = url.searchParams.get('ids');
         if (ids) {
           const idList = ids.split(',').map(function(s){return s.trim();}).filter(Boolean);
+          let surveyImageKeys = [];
+          for (var k=0;k<idList.length;k++) {
+            surveyImageKeys.push(...await collectImageKeys(DB_URL, 'survey_id = $1', [idList[k]]));
+          }
           for (var k=0;k<idList.length;k++) {
             var sid = idList[k];
             await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id = $1;`, [sid]);
             await queryNeon(DB_URL, `DELETE FROM surveys WHERE id = $1;`, [sid]);
           }
+          await deleteImageKeys(env, surveyImageKeys);
           return new Response(JSON.stringify({ success: true, message: 'Đã xóa '+idList.length+' khảo sát và toàn bộ bài liên quan', ids: idList }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
         if (!id) {
-          return new Response(JSON.stringify({ error: 'Survey ID required' }), { status: 400, headers: corsHeaders });
+          return new Response(JSON.stringify({ error: 'Survey ID required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
+        // Xóa orphan responses trước (kèm dọn ảnh đính kèm trên R2)
+        const surveyImageKeys = await collectImageKeys(DB_URL, 'survey_id = $1', [id]);
         await queryNeon(DB_URL, `DELETE FROM responses WHERE survey_id = $1;`, [id]);
         await queryNeon(DB_URL, `DELETE FROM surveys WHERE id = $1;`, [id]);
+        await deleteImageKeys(env, surveyImageKeys);
+
         return new Response(JSON.stringify({ success: true, message: 'Survey deleted', id }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

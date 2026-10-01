@@ -393,6 +393,163 @@ textarea.form-control {
   font-size: 14px;
 }
 
+/* =========================================================================
+   ẢNH ĐÍNH KÈM CÂU HỎI (Builder + Người tham gia + Admin + Excel)
+   ========================================================================= */
+.q-img-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px dashed #c8cbd9;
+  background: #f8f9ff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.q-img-attach-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.q-img-attach-btn.active {
+  border: 1px solid #22c55e;
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.img-attach-box {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed #c7d2fe;
+  background: #f5f7ff;
+  border-radius: 10px;
+}
+.img-attach-hint {
+  font-size: 12px;
+  color: #4f46e5;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.img-attach-required {
+  color: #dc2626;
+  font-weight: 700;
+}
+.img-attach-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.img-attach-pick-btn:hover { background: #4338ca; }
+.img-attach-pick-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.img-attach-count { font-size: 11px; color: #6b7280; margin-left: 8px; }
+.img-attach-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.img-attach-thumb {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  background: #e5e7eb;
+}
+.img-attach-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-attach-thumb .img-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(239, 68, 68, 0.95);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Admin: thumbnail trong bảng & modal chi tiết */
+.resp-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  cursor: zoom-in;
+  margin: 2px 4px 2px 0;
+  vertical-align: middle;
+  background: #f3f4f6;
+}
+.detail-thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  cursor: zoom-in;
+  background: #f3f4f6;
+}
+.img-attach-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
+.img-attach-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Lightbox xem ảnh full (modal ảnh trong Dữ Liệu Khảo Sát) */
+#imageLightboxModal .modal-content {
+  background: transparent;
+  box-shadow: none;
+  max-width: 900px;
+}
+.lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.3); }
+.lightbox-img-wrap { text-align: center; }
+.lightbox-img-wrap img {
+  max-width: 100%;
+  max-height: 76vh;
+  border-radius: 10px;
+  background: #fff;
+}
+.lightbox-caption { color: #e5e7eb; font-size: 13px; margin-top: 10px; }
+
 .share-box {
   background: #fafafc;
   border: 1px solid #e1e3ec;
@@ -1363,6 +1520,66 @@ textarea.form-control {
     </div>
   </div>
 </div>
+
+<!-- MODAL: THÊM ẢNH ĐÍNH KÈM CHO CÂU HỎI (Phần 2. Danh Sách Câu Hỏi) -->
+<div id="imageAttachModal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width:520px;border-top:4px solid var(--primary);">
+    <div class="modal-header">
+      <h3 style="color:var(--primary);font-size:17px;">📷 Thêm Ảnh Đính Kèm</h3>
+      <button class="btn-secondary btn-icon" onclick="closeImageAttachModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="imageAttachQLabel" style="font-size:13px;color:#6b7280;background:#f8f9ff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px;margin-bottom:16px;line-height:1.5;"></p>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+          <input type="checkbox" id="imgAttachEnabled" style="width:16px;height:16px;">
+          <b>Cho phép người tham gia đính kèm ảnh cho câu hỏi này</b>
+        </label>
+      </div>
+      <div class="form-group">
+        <label>Số ảnh tối đa được đính kèm</label>
+        <select id="imgAttachMax" class="form-control">
+          <option value="1">1 ảnh</option>
+          <option value="2">2 ảnh</option>
+          <option value="3">3 ảnh</option>
+          <option value="4">4 ảnh</option>
+          <option value="5">5 ảnh</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+          <input type="checkbox" id="imgAttachRequired" style="width:16px;height:16px;">
+          Bắt buộc phải đính kèm ít nhất 1 ảnh
+        </label>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Lời nhắc hiển thị cho người làm (tuỳ chọn)</label>
+        <input type="text" id="imgAttachHint" class="form-control" placeholder="Ví dụ: Đính kèm hình ảnh minh hoạ (hiện trạng)...">
+      </div>
+      <div style="background:#eef2ff;padding:10px 12px;border-radius:8px;font-size:12px;color:#3730a3;line-height:1.5;margin-top:14px;">
+        ℹ️ Khi bật, người tham gia bấm nút <b>📷</b> để mở thư viện ảnh trên điện thoại. Ảnh lưu trên <b>R2</b>, hiển thị ở tab <b>Dữ Liệu Khảo Sát &amp; Báo Cáo</b> và được <b>nhúng thẳng vào File Excel</b>. Không áp dụng cho câu hỏi Thang điểm (Rating).
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="btn-danger btn-sm hidden" id="imgAttachClearBtn" onclick="clearImageAttach()">🗑️ Xoá Đính Kèm</button>
+      <div style="display:flex;gap:10px;margin-left:auto;">
+        <button class="btn-secondary" onclick="closeImageAttachModal()">Hủy</button>
+        <button class="btn-primary" onclick="saveImageAttach()">Lưu Cấu Hình</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: LIGHTBOX XEM ẢNH ĐÍNH KÈM CỠ LỚN (Dữ Liệu Khảo Sát & Báo Cáo) -->
+<div id="imageLightboxModal" class="modal-overlay hidden" onclick="closeImageLightbox()">
+  <button class="lightbox-close" onclick="closeImageLightbox()">✕</button>
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="lightbox-img-wrap">
+      <img id="lightboxImg" src="" alt="Ảnh đính kèm">
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+  </div>
+</div>
 <script>
 /* =========================================================================
    ⚙️ CẤU HÌNH API BACKEND CLOUDFLARE WORKER & NEON DATABASE
@@ -1983,11 +2200,111 @@ const QRCodeEngine = (function() {
 /* =========================================================================
    2. EXCEL EXPORTER
    ========================================================================= */
+// === HỖ TRỢ ẢNH CHO EXCEL: đọc kích thước, chuẩn hoá định dạng Excel hỗ trợ ===
+function decodeImageSize(blob) {
+  return new Promise(function(resolve) {
+    function fallback() {
+      try {
+        var u = URL.createObjectURL(blob);
+        var im = new Image();
+        im.onload = function() { resolve({ w: im.naturalWidth, h: im.naturalHeight }); URL.revokeObjectURL(u); };
+        im.onerror = function() { URL.revokeObjectURL(u); resolve(null); };
+        im.src = u;
+      } catch (e) { resolve(null); }
+    }
+    if (window.createImageBitmap) {
+      createImageBitmap(blob).then(function(bm) {
+        resolve({ w: bm.width, h: bm.height });
+        if (bm.close) bm.close();
+      }).catch(fallback);
+    } else {
+      fallback();
+    }
+  });
+}
+
+// Excel chỉ nhúng được png/jpeg/gif/bmp → webp/không rõ định dạng sẽ chuyển sang jpeg
+function convertBlobToJpeg(blob) {
+  return new Promise(function(resolve, reject) {
+    var u = URL.createObjectURL(blob);
+    var im = new Image();
+    im.onload = function() {
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = im.naturalWidth || im.width;
+        canvas.height = im.naturalHeight || im.height;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(im, 0, 0);
+        URL.revokeObjectURL(u);
+        canvas.toBlob(function(out) { out ? resolve(out) : reject(new Error("convert failed")); }, "image/jpeg", 0.85);
+      } catch (e) { URL.revokeObjectURL(u); reject(e); }
+    };
+    im.onerror = function() { URL.revokeObjectURL(u); reject(new Error("invalid image")); };
+    im.src = u;
+  });
+}
+
+async function prepareExcelImage(blob) {
+  var type = (blob.type || "").toLowerCase();
+  var ext = "jpeg";
+  if (type.indexOf("png") >= 0) ext = "png";
+  else if (type.indexOf("gif") >= 0) ext = "gif";
+  else if (type.indexOf("bmp") >= 0) ext = "bmp";
+  else if (type.indexOf("jpeg") >= 0 || type.indexOf("jpg") >= 0) ext = "jpeg";
+  var size = await decodeImageSize(blob);
+  if (!size || !size.w || !size.h) return null;
+  if (ext === "gif") {
+    // GIF động mất chuyển động khi nhúng → giữ nguyên (Excel hỗ trợ gif)
+  }
+  if (type && type.indexOf("image/") === 0 && ["png", "gif", "bmp", "jpeg"].indexOf(ext) < 0) {
+    blob = await convertBlobToJpeg(blob);
+    ext = "jpeg";
+    var s2 = await decodeImageSize(blob);
+    if (s2) size = s2;
+  } else if (!type) {
+    blob = await convertBlobToJpeg(blob);
+    ext = "jpeg";
+    var s3 = await decodeImageSize(blob);
+    if (s3) size = s3;
+  }
+  var bytes = new Uint8Array(await blob.arrayBuffer());
+  return { bytes: bytes, ext: ext, w: size.w, h: size.h };
+}
+
 const ExcelExporter = {
-  export: function(filename, surveyTitle, questions, responses) {
+  export: async function(filename, surveyTitle, questions, responses) {
     if (!responses || responses.length === 0) {
       showToast("Chưa có dữ liệu phản hồi để xuất Excel.", "error");
       return;
+    }
+
+    // === TẢI TOÀN BỘ ẢNH ĐÍNH KÈM (R2) ĐỂ NHÚM VÀO FILE EXCEL ===
+    var imgStore = {};
+    var imgKeysNeeded = [];
+    (responses || []).forEach(function(r) {
+      var ansList = r.answers;
+      if (typeof ansList === "string") { try { ansList = JSON.parse(ansList); } catch(e){ ansList = []; } }
+      (ansList || []).forEach(function(a) {
+        (a.images || []).forEach(function(k) {
+          if (k && imgStore[k] === undefined && imgKeysNeeded.indexOf(k) < 0) imgKeysNeeded.push(k);
+        });
+      });
+    });
+    if (imgKeysNeeded.length > 0) {
+      showToast("Đang tải " + imgKeysNeeded.length + " ảnh đính kèm để nhúng vào Excel...", "info");
+      for (var ik = 0; ik < imgKeysNeeded.length; ik++) {
+        var loadKey = imgKeysNeeded[ik];
+        try {
+          var imgUrl = await getAdminImageUrl(loadKey);
+          var imgBlob = await (await fetch(imgUrl)).blob();
+          var prepared = await prepareExcelImage(imgBlob);
+          if (prepared) imgStore[loadKey] = prepared;
+        } catch (e) {
+          console.warn("Bỏ qua ảnh không tải được: " + loadKey, e);
+        }
+      }
     }
     // 1. Thu thập câu hỏi
     var finalQuestions = [];
@@ -2045,6 +2362,7 @@ const ExcelExporter = {
     // Row 4: Header – style 1 (trắng trên nền tím, căn giữa, đậm)
     rows.push(headers.map(function(h){ return {v: h, s: 1}; }));
     // Data rows
+    var dataRowImages = []; // song song responses: mảng {col, keys} các ô có ảnh
     responses.forEach(function(r, rIdx){
       var dateStr = r.submitted_at || r.submittedAt || "";
       if (dateStr) { try { dateStr = new Date(dateStr).toLocaleString("vi-VN"); } catch(e){} }
@@ -2053,6 +2371,7 @@ const ExcelExporter = {
       var dept = (r.employee_dept || r.employee?.department || "").toString();
       var ip = (r.client_ip || r.clientIp || "").toString();
       var ansMap = {};
+      var imgAnsMap = {}; // qid/title/idx -> [image keys]
       var answersList = r.answers;
       if (typeof answersList === "string") { try { answersList = JSON.parse(answersList); } catch(e){ answersList = []; } }
       (answersList || []).forEach(function(a, aIdx){
@@ -2065,6 +2384,12 @@ const ExcelExporter = {
         if (qid!==undefined) ansMap[String(qid)]=val;
         if (qtext) ansMap[qtext]=val;
         ansMap["idx_"+aIdx]=val;
+        var aImgs = (a.images || []).filter(function(k){ return typeof k === "string" && k && imgStore[k]; });
+        if (aImgs.length) {
+          if (qid!==undefined) imgAnsMap[String(qid)]=aImgs;
+          if (qtext) imgAnsMap[qtext]=aImgs;
+          imgAnsMap["idx_"+aIdx]=aImgs;
+        }
       });
       var row = [];
       row.push({v: String(rIdx+1), s: 2, isNumber: true});
@@ -2073,15 +2398,70 @@ const ExcelExporter = {
       row.push({v: name, s: 0});
       row.push({v: dept, s: 0});
       row.push({v: ip, s: 2});
+      var rowImgs = [];
       finalQuestions.forEach(function(q, qIdx){
         var ans="";
         if (q.id && ansMap[String(q.id)]!==undefined) ans=ansMap[String(q.id)];
         else if (q.title && ansMap[String(q.title).trim()]!==undefined) ans=ansMap[String(q.title).trim()];
         else if (ansMap["idx_"+qIdx]!==undefined) ans=ansMap["idx_"+qIdx];
         row.push({v: ans, s: 0});
+        // Ảnh đính kèm của ô này (cột STT+6 cột info = index 6 trở đi)
+        var cellImgs = null;
+        if (q.id && imgAnsMap[String(q.id)]!==undefined) cellImgs=imgAnsMap[String(q.id)];
+        else if (q.title && imgAnsMap[String(q.title).trim()]!==undefined) cellImgs=imgAnsMap[String(q.title).trim()];
+        else if (imgAnsMap["idx_"+qIdx]!==undefined) cellImgs=imgAnsMap["idx_"+qIdx];
+        if (cellImgs && cellImgs.length) rowImgs.push({ col: 6 + qIdx, keys: cellImgs });
       });
+      dataRowImages.push(rowImgs);
       rows.push(row);
     });
+
+    // === TÍNH VỊ TRÍ & KÍCH THƯỚC ẢNH NHÚM (anchor) + chiều cao dòng có ảnh ===
+    var drawingAnchors = []; // {row(0-based), col, colOff, rowOff, w, h, key}
+    var rowHeightsPt = {};   // sheet row (1-based) -> chiều cao (pt)
+    dataRowImages.forEach(function(rowImgs, di){
+      if (!rowImgs.length) return;
+      var sheetRow = 5 + di; // dữ liệu bắt đầu từ dòng 5 (1,2 title/meta; 3 trống; 4 header)
+      // Ước tính chiều cao phần chữ trong dòng
+      var textPx = 20;
+      (rows[sheetRow - 1] || []).forEach(function(cell){
+        var len = (cell.v == null ? 0 : String(cell.v).length);
+        var lines = Math.min(4, Math.max(1, Math.ceil(len / 45)));
+        textPx = Math.max(textPx, lines * 15 + 5);
+      });
+      var totalImgs = 0;
+      rowImgs.forEach(function(ri){ totalImgs += ri.keys.length; });
+      var gap = 4;
+      var budgetW = 200; // vừa vặn cột rộng 30 (~215px)
+      var perMaxW = Math.max(40, (budgetW - gap * Math.max(0, totalImgs - 1)) / Math.max(1, totalImgs));
+      var maxH = 0;
+      rowImgs.forEach(function(ri){
+        var xOff = 0;
+        ri.keys.forEach(function(key){
+          var im = imgStore[key];
+          if (!im) return;
+          var scale = Math.min(96 / im.h, perMaxW / im.w);
+          var w = Math.max(24, Math.round(im.w * scale));
+          var h = Math.max(24, Math.round(im.h * scale));
+          drawingAnchors.push({ row: sheetRow - 1, col: ri.col, colOff: xOff, rowOff: textPx, w: w, h: h, key: key });
+          xOff += w + gap;
+          maxH = Math.max(maxH, h);
+        });
+      });
+      if (maxH > 0) rowHeightsPt[sheetRow] = Math.ceil((textPx + maxH + 8) * 0.75);
+    });
+
+    // Gán media index (mỗi key 1 file ảnh trong zip, nhiều anchor có thể dùng chung)
+    var mediaList = [];
+    var mediaIndexByKey = {};
+    drawingAnchors.forEach(function(a){
+      if (mediaIndexByKey[a.key] === undefined) {
+        mediaIndexByKey[a.key] = mediaList.length;
+        mediaList.push({ key: a.key, ext: imgStore[a.key].ext, bytes: imgStore[a.key].bytes });
+      }
+      a.rIdNum = mediaIndexByKey[a.key] + 1;
+    });
+    var hasImages = drawingAnchors.length > 0;
 
     // Build sheet XML
     var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -2095,7 +2475,8 @@ const ExcelExporter = {
     rows.forEach(function(row, rIdx){
       var rNum = rIdx+1;
       var ht = "";
-      if (rNum === 1) ht = ' ht="30" customHeight="1"';
+      if (rowHeightsPt[rNum]) ht = ' ht="' + rowHeightsPt[rNum] + '" customHeight="1"';
+      else if (rNum === 1) ht = ' ht="30" customHeight="1"';
       else if (rNum === 4) ht = ' ht="26" customHeight="1"';
       else if (rNum > 4) ht = ' ht="18" customHeight="1"';
       if (row.length===0) {
@@ -2124,6 +2505,10 @@ const ExcelExporter = {
     if (headers.length>1) {
       sheetXml += '<mergeCells count="2"><mergeCell ref="A1:'+colToLetter(headers.length-1)+'1"/><mergeCell ref="A2:'+colToLetter(headers.length-1)+'2"/></mergeCells>\n';
     }
+    // Tham chiếu drawing (chứa ảnh nhúng) – phải nằm sau mergeCells theo schema
+    if (hasImages) {
+      sheetXml += '<drawing r:id="rId1"/>\n';
+    }
     sheetXml += '</worksheet>';
 
     var workbookXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
@@ -2144,12 +2529,22 @@ const ExcelExporter = {
 
     var contentTypesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n' +
-      '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n' +
-      '  <Default Extension="xml" ContentType="application/xml"/>\n' +
-      '  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>\n' +
-      '  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>\n' +
-      '  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>\n' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n' +
+      '<Default Extension="xml" ContentType="application/xml"/>\n' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>\n' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>\n' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>\n' +
       '</Types>';
+    if (hasImages) {
+      contentTypesXml = contentTypesXml.replace('</Types>',
+        '<Default Extension="jpeg" ContentType="image/jpeg"/>' +
+        '<Default Extension="png" ContentType="image/png"/>' +
+        '<Default Extension="gif" ContentType="image/gif"/>' +
+        '<Default Extension="bmp" ContentType="image/bmp"/>' +
+        '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' +
+        '</Types>');
+    }
+
 
     var stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\n' +
@@ -2177,6 +2572,44 @@ const ExcelExporter = {
       '  </cellXfs>\n' +
       '</styleSheet>';
 
+    // === DRAWING XML + RELS để nhúng ảnh thật vào sheet ===
+    var drawingXml = "";
+    var drawingRelsXml = "";
+    var sheetRelsXml = "";
+    if (hasImages) {
+      drawingXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+        '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n';
+      drawingAnchors.forEach(function(a, i){
+        var cx = Math.round(a.w * 9525);
+        var cy = Math.round(a.h * 9525);
+        var colOff = Math.round(a.colOff * 9525);
+        var rowOff = Math.round(a.rowOff * 9525);
+        drawingXml += '<xdr:oneCellAnchor>\n';
+        drawingXml += '<xdr:from><xdr:col>' + a.col + '</xdr:col><xdr:colOff>' + colOff + '</xdr:colOff><xdr:row>' + a.row + '</xdr:row><xdr:rowOff>' + rowOff + '</xdr:rowOff></xdr:from>\n';
+        drawingXml += '<xdr:ext cx="' + cx + '" cy="' + cy + '"/>\n';
+        drawingXml += '<xdr:pic>\n';
+        drawingXml += '<xdr:nvPicPr><xdr:cNvPr id="' + (i + 1) + '" name="AnhDinhKem ' + (i + 1) + '"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>\n';
+        drawingXml += '<xdr:blipFill><a:blip r:embed="rId' + a.rIdNum + '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>\n';
+        drawingXml += '<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>\n';
+        drawingXml += '</xdr:pic>\n';
+        drawingXml += '<xdr:clientData/>\n';
+        drawingXml += '</xdr:oneCellAnchor>\n';
+      });
+      drawingXml += '</xdr:wsDr>';
+
+      drawingRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n';
+      mediaList.forEach(function(m, i){
+        drawingRelsXml += '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image' + (i + 1) + '.' + m.ext + '"/>\n';
+      });
+      drawingRelsXml += '</Relationships>';
+
+      sheetRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>' +
+        '</Relationships>';
+    }
+
     // ZIP builder (STORE, no compression)
     var files = [
       {name: "[Content_Types].xml", data: contentTypesXml},
@@ -2186,6 +2619,14 @@ const ExcelExporter = {
       {name: "xl/worksheets/sheet1.xml", data: sheetXml},
       {name: "xl/styles.xml", data: stylesXml}
     ];
+    if (hasImages) {
+      files.push({name: "xl/worksheets/_rels/sheet1.xml.rels", data: sheetRelsXml});
+      files.push({name: "xl/drawings/drawing1.xml", data: drawingXml});
+      files.push({name: "xl/drawings/_rels/drawing1.xml.rels", data: drawingRelsXml});
+      mediaList.forEach(function(m, i){
+        files.push({name: "xl/media/image" + (i + 1) + "." + m.ext, bytes: m.bytes});
+      });
+    }
     var zipData = createZip(files);
     var blob = new Blob([zipData], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     var url = URL.createObjectURL(blob);
@@ -2208,7 +2649,8 @@ const ExcelExporter = {
         return new TextEncoder().encode(s);
       }
       var fileDatas = files.map(function(f){
-        var bytes = strToBytes(f.data);
+        // Hỗ trợ file binary (ảnh media) qua f.bytes, file XML/text qua f.data
+        var bytes = f.bytes ? f.bytes : strToBytes(f.data);
         return {name: f.name, bytes: bytes, crc: crc32(bytes)};
       });
       var localParts = [];
@@ -2633,6 +3075,12 @@ function renderQuestionsList() {
     html += '    <label style="font-size:12px;display:flex;align-items:center;gap:4px;margin-left:8px;cursor:pointer;">';
     html += '      <input type="checkbox"' + (q.required ? " checked" : "") + ' onchange="AppState.currentSurvey.questions[' + idx + '].required = this.checked"> Bắt buộc (*)';
     html += '    </label>';
+    if (q.type !== "rating") {
+      var imgAtt = (q.imageAttach && q.imageAttach.enabled) ? q.imageAttach : null;
+      html += '    <button type="button" class="q-img-attach-btn' + (imgAtt ? ' active' : '') + '" title="Cấu hình ảnh đính kèm cho câu hỏi này" onclick="openImageAttachModal(' + idx + ')">';
+      html += '      📷 ' + (imgAtt ? 'Đính kèm ảnh: BẬT (tối đa ' + (imgAtt.max || 1) + ')' : 'Thêm ảnh đính kèm');
+      html += '    </button>';
+    }
     html += '    <div class="q-item-actions">';
     html += '      <button class="btn-secondary btn-icon" title="Di chuyển lên" onclick="moveQuestion(' + idx + ', -1)"' + (idx === 0 ? " disabled" : "") + '>⬆️</button>';
     html += '      <button class="btn-secondary btn-icon" title="Di chuyển xuống" onclick="moveQuestion(' + idx + ', 1)"' + (idx === qs.length - 1 ? " disabled" : "") + '>⬇️</button>';
@@ -2669,9 +3117,67 @@ function renderQuestionsList() {
   container.innerHTML = html;
 }
 
+/* --- Modal cấu hình "Thêm ảnh đính kèm" cho từng câu hỏi (Phần 2) --- */
+var __imageAttachQIndex = -1;
+
+function openImageAttachModal(qIndex) {
+  var q = AppState.currentSurvey.questions[qIndex];
+  if (!q) return;
+  if (q.type === "rating") {
+    showToast("Câu hỏi Thang điểm (Rating) không hỗ trợ đính kèm ảnh.", "error");
+    return;
+  }
+  __imageAttachQIndex = qIndex;
+  var cfg = q.imageAttach || {};
+  document.getElementById("imageAttachQLabel").innerHTML = "Câu " + (qIndex + 1) + ": " + escHtml(q.title || "(chưa nhập nội dung câu hỏi)");
+  document.getElementById("imgAttachEnabled").checked = !!cfg.enabled;
+  document.getElementById("imgAttachMax").value = String(cfg.max || 1);
+  document.getElementById("imgAttachRequired").checked = !!cfg.required;
+  document.getElementById("imgAttachHint").value = cfg.hint || "";
+  document.getElementById("imgAttachClearBtn").classList.toggle("hidden", !q.imageAttach);
+  document.getElementById("imageAttachModal").classList.remove("hidden");
+}
+
+function closeImageAttachModal() {
+  __imageAttachQIndex = -1;
+  document.getElementById("imageAttachModal").classList.add("hidden");
+}
+
+function saveImageAttach() {
+  if (__imageAttachQIndex < 0) return;
+  var q = AppState.currentSurvey.questions[__imageAttachQIndex];
+  if (!q) { closeImageAttachModal(); return; }
+  var enabled = document.getElementById("imgAttachEnabled").checked;
+  if (!enabled) {
+    delete q.imageAttach;
+  } else {
+    q.imageAttach = {
+      enabled: true,
+      max: Math.max(1, Math.min(5, parseInt(document.getElementById("imgAttachMax").value, 10) || 1)),
+      required: document.getElementById("imgAttachRequired").checked,
+      hint: document.getElementById("imgAttachHint").value.trim()
+    };
+  }
+  closeImageAttachModal();
+  renderQuestionsList();
+  showToast(enabled ? "Đã bật ảnh đính kèm cho câu hỏi này." : "Đã tắt ảnh đính kèm cho câu hỏi này.", "success");
+}
+
+function clearImageAttach() {
+  if (__imageAttachQIndex >= 0) {
+    var q = AppState.currentSurvey.questions[__imageAttachQIndex];
+    if (q) delete q.imageAttach;
+  }
+  closeImageAttachModal();
+  renderQuestionsList();
+  showToast("Đã xoá cấu hình ảnh đính kèm.", "info");
+}
+
 function changeQuestionType(qIndex, newType) {
   var q = AppState.currentSurvey.questions[qIndex];
   q.type = newType;
+  // Loại trừ Rating: tắt cấu hình ảnh đính kèm nếu có
+  if (newType === "rating" && q.imageAttach) delete q.imageAttach;
   if (newType === "radio" || newType === "checkbox" || newType === "dropdown") {
     if (!q.options || q.options.length === 0) q.options = ["Lựa chọn 1", "Lựa chọn 2", "Lựa chọn 3"];
   } else if (newType === "rating") {
@@ -2992,6 +3498,8 @@ function backToIntroStep() {
 function renderParticipantQuestions(survey) {
   var container = document.getElementById("pvQuestionsList");
   var html = "";
+  // Reset ảnh đính kèm tạm mỗi lần vào form làm bài
+  window.__pendingImages = {};
 
   (survey.questions || []).forEach(function(q, idx) {
     var qid = q.id || ("q" + idx);
@@ -3035,10 +3543,172 @@ function renderParticipantQuestions(survey) {
       html += '<input type="text" name="' + qid + '" class="survey-input" placeholder="' + escHtml(q.placeholder || "Nhập câu trả lời...") + '"' + (q.required ? ' required' : '') + '>';
     }
 
+    // ẢNH ĐÍNH KÈM: áp dụng mọi loại câu hỏi trừ Rating (nếu admin đã bật ở Phần 2)
+    if (q.type !== "rating" && q.imageAttach && q.imageAttach.enabled) {
+      var attMax = Math.max(1, Math.min(5, parseInt(q.imageAttach.max, 10) || 1));
+      html += '<div class="img-attach-box" data-attach-qid="' + escHtml(qid) + '" data-max="' + attMax + '">';
+      if (q.imageAttach.hint) {
+        html += '<div class="img-attach-hint">📎 ' + escHtml(q.imageAttach.hint) + (q.imageAttach.required ? ' <span class="img-attach-required">*(Bắt buộc đính kèm)</span>' : '') + '</div>';
+      } else if (q.imageAttach.required) {
+        html += '<div class="img-attach-hint">📎 Vui lòng đính kèm ít nhất 1 ảnh cho câu hỏi này. <span class="img-attach-required">*(Bắt buộc)</span></div>';
+      }
+      html += '<button type="button" class="img-attach-pick-btn" onclick="triggerImagePick(\'' + escHtml(qid) + '\')">📷 Thêm ảnh đính kèm</button>';
+      html += '<span class="img-attach-count" id="imgCount_' + escHtml(qid) + '">0/' + attMax + ' ảnh</span>';
+      html += '<input type="file" accept="image/*" style="display:none;" id="imgFile_' + escHtml(qid) + '"' + (attMax > 1 ? ' multiple' : '') + ' onchange="handleImageSelect(event, \'' + escHtml(qid) + '\')">';
+      html += '<div class="img-attach-list" id="imgList_' + escHtml(qid) + '"></div>';
+      html += '</div>';
+    }
+
     html += '</div>';
   });
 
   container.innerHTML = html;
+}
+
+/* --- Xử lý ảnh đính kèm phía người tham gia (mở thư viện điện thoại) --- */
+function getPendingImages(qid) {
+  if (!window.__pendingImages) window.__pendingImages = {};
+  if (!window.__pendingImages[qid]) window.__pendingImages[qid] = [];
+  return window.__pendingImages[qid];
+}
+
+function getAttachMaxByQid(qid) {
+  var box = document.querySelector('[data-attach-qid="' + qid + '"]');
+  return box ? (parseInt(box.getAttribute("data-max"), 10) || 1) : 1;
+}
+
+function triggerImagePick(qid) {
+  var max = getAttachMaxByQid(qid);
+  var list = getPendingImages(qid);
+  if (list.length >= max) {
+    showToast("Chỉ được đính kèm tối đa " + max + " ảnh cho câu hỏi này.", "error");
+    return;
+  }
+  var input = document.getElementById("imgFile_" + qid);
+  if (input) input.click();
+}
+
+async function handleImageSelect(event, qid) {
+  var input = event.target;
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = "";
+  if (!files.length) return;
+  var max = getAttachMaxByQid(qid);
+  var list = getPendingImages(qid);
+  for (var i = 0; i < files.length; i++) {
+    if (list.length >= max) {
+      showToast("Đã đạt giới hạn " + max + " ảnh cho câu hỏi này.", "error");
+      break;
+    }
+    var f = files[i];
+    if (f.type && f.type.indexOf("image/") !== 0) {
+      showToast("File '" + f.name + "' không phải là ảnh hợp lệ.", "error");
+      continue;
+    }
+    try {
+      var blob = await compressImageForUpload(f);
+      list.push({
+        id: "im_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        blob: blob,
+        url: URL.createObjectURL(blob)
+      });
+    } catch (e) {
+      showToast("Không đọc được ảnh: " + f.name, "error");
+    }
+  }
+  renderPendingImages(qid);
+}
+
+// Nén ảnh trước khi upload: side dài nhất ≤1600px, JPEG chất lượng 0.8
+function compressImageForUpload(file) {
+  return new Promise(function(resolve, reject) {
+    var objUrl = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var maxSide = 1600;
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        var scale = Math.min(1, maxSide / Math.max(w, h));
+        var cw = Math.max(1, Math.round(w * scale));
+        var ch = Math.max(1, Math.round(h * scale));
+        var canvas = document.createElement("canvas");
+        canvas.width = cw;
+        canvas.height = ch;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        URL.revokeObjectURL(objUrl);
+        canvas.toBlob(function(blob) {
+          resolve(blob || file);
+        }, "image/jpeg", 0.8);
+      } catch (e) {
+        URL.revokeObjectURL(objUrl);
+        resolve(file);
+      }
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(objUrl);
+      reject(new Error("invalid image"));
+    };
+    img.src = objUrl;
+  });
+}
+
+function renderPendingImages(qid) {
+  var list = getPendingImages(qid);
+  var max = getAttachMaxByQid(qid);
+  var countEl = document.getElementById("imgCount_" + qid);
+  if (countEl) countEl.textContent = list.length + "/" + max + " ảnh";
+  var container = document.getElementById("imgList_" + qid);
+  if (!container) return;
+  var html = "";
+  list.forEach(function(im) {
+    html += '<div class="img-attach-thumb"><img src="' + im.url + '" alt="Ảnh đính kèm">' +
+      '<button type="button" class="img-remove" title="Gỡ ảnh" onclick="removePendingImage(\'' + escHtml(qid) + '\', \'' + im.id + '\')">✕</button></div>';
+  });
+  container.innerHTML = html;
+}
+
+function removePendingImage(qid, imgId) {
+  var list = getPendingImages(qid);
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === imgId) {
+      try { URL.revokeObjectURL(list[i].url); } catch (e) {}
+      list.splice(i, 1);
+      break;
+    }
+  }
+  renderPendingImages(qid);
+}
+
+// Upload 1 ảnh lên R2 qua POST /api/images, trả về key lưu trong answers[].images
+function blobToBase64(blob) {
+  return new Promise(function(resolve, reject) {
+    var fr = new FileReader();
+    fr.onload = function() {
+      var s = fr.result || "";
+      var comma = s.indexOf(",");
+      resolve(comma >= 0 ? s.slice(comma + 1) : s);
+    };
+    fr.onerror = function() { reject(new Error("Không đọc được file ảnh")); };
+    fr.readAsDataURL(blob);
+  });
+}
+
+async function uploadImageToServer(blob) {
+  var b64 = await blobToBase64(blob);
+  var res = await fetch(buildApiUrl("/api/images"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contentType: blob.type || "image/jpeg", data: b64 })
+  });
+  var data = await res.json().catch(function() { return null; });
+  if (!res.ok || !data || !data.key) {
+    throw new Error((data && data.error) ? data.error : ("HTTP " + res.status));
+  }
+  return data.key;
 }
 
 function selectRadioOption(labelEl) {
@@ -3109,12 +3779,23 @@ async function submitSurveyResponse() {
       }
     }
 
-    answers.push({
+    // Kiểm tra ảnh đính kèm bắt buộc
+    var hasAttachCfg = (q.type !== "rating" && q.imageAttach && q.imageAttach.enabled);
+    if (hasAttachCfg && q.imageAttach.required) {
+      var pend = (window.__pendingImages && window.__pendingImages[qid]) || [];
+      if (pend.length === 0) {
+        missingQuestions.push("Câu " + (idx + 1) + ": " + q.title + " (cần đính kèm ảnh)");
+      }
+    }
+
+    var answerObj = {
       questionId: qid,
       question: q.title,
       type: q.type,
       value: val
-    });
+    };
+    if (hasAttachCfg) answerObj.images = [];
+    answers.push(answerObj);
   });
 
   if (missingQuestions.length > 0) {
@@ -3136,6 +3817,38 @@ async function submitSurveyResponse() {
   }
   submitBtn.disabled = true;
   submitBtn.textContent = "⏳ ĐANG GỬI DỮ LIỆU...";
+
+  // === TẢI ẢNH ĐÍNH KÈM LÊN R2 TRƯỚC KHI GỬI BÀI (answers[].images = key) ===
+  var attachEntries = [];
+  (survey.questions || []).forEach(function(q, idx) {
+    if (q.type === "rating" || !q.imageAttach || !q.imageAttach.enabled) return;
+    var aQid = q.id || ("q" + idx);
+    var imgs = (window.__pendingImages && window.__pendingImages[aQid]) || [];
+    if (imgs.length > 0) attachEntries.push({ idx: idx, imgs: imgs });
+  });
+  if (attachEntries.length > 0) {
+    var totalImgs = 0;
+    attachEntries.forEach(function(e) { totalImgs += e.imgs.length; });
+    var doneImgs = 0;
+    try {
+      for (var ae = 0; ae < attachEntries.length; ae++) {
+        var entry = attachEntries[ae];
+        var imgKeys = [];
+        for (var ii = 0; ii < entry.imgs.length; ii++) {
+          submitBtn.textContent = "⏳ ĐANG TẢI ẢNH " + (doneImgs + 1) + "/" + totalImgs + "...";
+          imgKeys.push(await uploadImageToServer(entry.imgs[ii].blob));
+          doneImgs++;
+        }
+        if (answers[entry.idx]) answers[entry.idx].images = imgKeys;
+      }
+    } catch (upErr) {
+      showToast("Tải ảnh đính kèm thất bại: " + (upErr.message || upErr) + ". Vui lòng thử lại.", "error");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "GỬI BÀI KHẢO SÁT (SUBMIT)";
+      return;
+    }
+    submitBtn.textContent = "⏳ ĐANG GỬI DỮ LIỆU...";
+  }
 
   var payload = {
     survey_id: survey.id || "SV-DEFAULT",
@@ -3224,6 +3937,63 @@ function goToAdminHub() {
 /* =========================================================================
    7. ADMIN DATA HUB
    ========================================================================= */
+// === ẢNH ĐÍNH KÈM: fetch từ backend bằng x-admin-key, cache objectURL ===
+var __adminImgUrlCache = {};
+
+function getAdminImageUrl(key) {
+  if (!key) return Promise.reject(new Error("empty key"));
+  if (__adminImgUrlCache[key]) return Promise.resolve(__adminImgUrlCache[key]);
+  return fetch(buildApiUrl("/api/images/" + key), {
+    headers: { "x-admin-key": getAdminKeyForApi() }
+  }).then(function(res) {
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.blob();
+  }).then(function(blob) {
+    var url = URL.createObjectURL(blob);
+    __adminImgUrlCache[key] = url;
+    return url;
+  });
+}
+
+// Tự nạp src cho mọi <img data-img-key> chưa hydrate (bảng + modal chi tiết)
+function hydrateImageTags(root) {
+  var scope = root || document;
+  scope.querySelectorAll("img[data-img-key]:not([data-hydrated])").forEach(function(img) {
+    img.setAttribute("data-hydrated", "1");
+    var key = img.getAttribute("data-img-key");
+    getAdminImageUrl(key).then(function(url) {
+      img.src = url;
+    }).catch(function() {
+      img.removeAttribute("src");
+      img.alt = "⚠️";
+      img.title = "Không tải được ảnh (kiểm tra R2 binding IMAGES_BUCKET)";
+      img.style.background = "#fee2e2";
+    });
+  });
+}
+
+// Lightbox xem ảnh đính kèm cỡ lớn
+function openImageLightbox(key) {
+  var modal = document.getElementById("imageLightboxModal");
+  var img = document.getElementById("lightboxImg");
+  var cap = document.getElementById("lightboxCaption");
+  if (!modal || !img) return;
+  img.removeAttribute("src");
+  cap.textContent = "⏳ Đang tải ảnh...";
+  modal.classList.remove("hidden");
+  getAdminImageUrl(key).then(function(url) {
+    img.src = url;
+    cap.textContent = "Ảnh đính kèm";
+  }).catch(function() {
+    cap.textContent = "⚠️ Không tải được ảnh. Kiểm tra R2 binding IMAGES_BUCKET hoặc kết nối mạng.";
+  });
+}
+
+function closeImageLightbox() {
+  var modal = document.getElementById("imageLightboxModal");
+  if (modal) modal.classList.add("hidden");
+}
+
 async function refreshDataList() {
   showToast("Đang tải dữ liệu...", "info");
   // Cold start streaming: Neon Free ngủ đông ~5 phút, wake 0.8-2.5s (có thể 3-5s)
@@ -3361,8 +4131,23 @@ function renderResponsesTable(rows) {
     var answersCount = (answersList || []).length;
     var previewAns = (answersList || []).slice(0, 2).map(function(a) {
       var v = Array.isArray(a.value) ? a.value.join(', ') : a.value;
-      return '<b>' + escHtml(a.question) + ':</b> ' + escHtml(v);
+      var imgBadge = (a.images && a.images.length) ? '<span class="img-attach-badge">📷 ' + a.images.length + ' ảnh</span>' : '';
+      return '<b>' + escHtml(a.question) + ':</b> ' + escHtml(v) + imgBadge;
     }).join('<br>');
+
+    // Thumbnail ảnh đính kèm hiển thị trực tiếp trong cột Chi Tiết Trả Lời
+    var thumbHtml = "";
+    var thumbCount = 0;
+    (answersList || []).forEach(function(a) {
+      (a.images || []).forEach(function(k) {
+        if (thumbCount < 8) {
+          thumbHtml += '<img class="resp-thumb" data-img-key="' + escHtml(k) + '" alt="Ảnh" title="Bấm để xem to" onclick="openImageLightbox(\'' + escHtml(k) + '\')">';
+        }
+        thumbCount++;
+      });
+    });
+    if (thumbCount > 8) thumbHtml += '<span class="img-attach-badge">+' + (thumbCount - 8) + ' ảnh</span>';
+    if (thumbHtml) thumbHtml = '<div style="margin-top:6px;line-height:1;">' + thumbHtml + '</div>';
 
     html += '<tr>';
     html += '  <td style="text-align:center;"><input type="checkbox" class="resp-checkbox" value="' + escHtml(r.id) + '" onchange="updateSelectedResponsesCount()" style="width:16px;height:16px;cursor:pointer;"></td>';
@@ -3372,7 +4157,7 @@ function renderResponsesTable(rows) {
     html += '  <td style="font-weight:600;color:#111827;">' + escHtml(name) + '</td>';
     html += '  <td><span class="badge badge-blue">' + escHtml(dept) + '</span></td>';
     html += '  <td style="font-size:12px;color:#6b7280;white-space:nowrap;">' + escHtml(ip) + '</td>';
-    html += '  <td style="font-size:12px;color:#4b5563;max-width:280px;">' + (previewAns || 'Đã trả lời ' + answersCount + ' câu hỏi') + '</td>';
+    html += '  <td style="font-size:12px;color:#4b5563;max-width:280px;">' + (previewAns || 'Đã trả lời ' + answersCount + ' câu hỏi') + thumbHtml + '</td>';
     html += '  <td style="text-align:right;white-space:nowrap;">';
     html += '    <button class="btn-outline btn-sm" style="color:#4f46e5;border-color:#c7d2fe;margin-right:4px;" onclick="viewResponseDetail(' + idx + ')">👁️ Chi tiết</button>';
     html += '    <button class="btn-danger btn-sm" style="font-size:12px;" onclick="openRetakeModal(' + r.id + ')" title="Xóa bài này và cho phép nhân viên đó làm lại">🔓 Cho phép làm lại</button>';
@@ -3381,6 +4166,7 @@ function renderResponsesTable(rows) {
   });
 
   tbody.innerHTML = html;
+  hydrateImageTags(tbody);
 }
 
 function toggleSelectAllResponses(checked) {
@@ -3460,11 +4246,21 @@ function viewResponseDetail(index) {
     html += '<div style="border-left:3px solid var(--primary);padding-left:12px;">';
     html += '  <div style="font-weight:600;font-size:13px;color:#1f2937;">' + (idx + 1) + '. ' + escHtml(a.question) + '</div>';
     html += '  <div style="font-size:13px;color:#4f46e5;margin-top:3px;font-weight:500;">➔ ' + escHtml(val || 'Chưa trả lời') + '</div>';
+    // Ảnh đính kèm của câu trả lời này (bấm để xem to)
+    var imgList = a.images || [];
+    if (imgList.length) {
+      html += '  <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">';
+      imgList.forEach(function(k) {
+        html += '<img class="detail-thumb" data-img-key="' + escHtml(k) + '" alt="Ảnh đính kèm" title="Bấm để xem to" onclick="openImageLightbox(\'' + escHtml(k) + '\')">';
+      });
+      html += '  </div>';
+    }
     html += '</div>';
   });
   html += '</div>';
 
   document.getElementById("modalResponseBody").innerHTML = html;
+  hydrateImageTags(document.getElementById("modalResponseBody"));
   document.getElementById("responseDetailModal").classList.remove("hidden");
 }
 
@@ -3487,8 +4283,13 @@ async function exportDataToExcel() {
   });
 
   var questions = AppState.currentSurvey ? AppState.currentSurvey.questions : [];
-  ExcelExporter.export("Khao_Sat_Leggett", (AppState.currentSurvey && AppState.currentSurvey.title) ? AppState.currentSurvey.title : "Khảo Sát Nhân Viên", questions, rows);
-  showToast("Đã xuất file Excel thành công!", "success");
+  try {
+    await ExcelExporter.export("Khao_Sat_Leggett", (AppState.currentSurvey && AppState.currentSurvey.title) ? AppState.currentSurvey.title : "Khảo Sát Nhân Viên", questions, rows);
+    showToast("Đã xuất file Excel thành công!", "success");
+  } catch (err) {
+    console.warn("Lỗi xuất Excel:", err);
+    showToast("Xuất Excel thất bại: " + (err && err.message ? err.message : err), "error");
+  }
 }
 
 function openPurgeDataModal() {
